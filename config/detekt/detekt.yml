@@ -1,0 +1,37 @@
+build:
+  maxIssues: 0
+
+complexity:
+  LongMethod:
+    threshold: 80
+    ignoreAnnotated: ["Composable"]
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 8
+    ignoreDefaultParameters: true
+    ignoreAnnotated: ["Composable"]
+  CyclomaticComplexMethod:
+    ignoreAnnotated: ["Composable"]
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ["Composable"]
+
+style:
+  MagicNumber:
+    ignoreAnnotated: ["Composable"]
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreNamedArgument: true
+  MaxLineLength:
+    maxLineLength: 120
+  ReturnCount:
+    max: 3
+
+exceptions:
+  # Decompiler can fail with Error subclasses (OutOfMemoryError, StackOverflowError); the raw
+  # Throwable must reach CrashLogger unchanged, so catching Throwable here is intentional.
+  TooGenericExceptionCaught:
+    active: false
+  SwallowedException:
+    active: false

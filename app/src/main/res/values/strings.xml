@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="app_name">JadxDroid</string>
+	<string name="title">Dekompiler APK / DEX / JAR</string>
+	<string name="subtitle">Pilih file; hasil diekspor sebagai ZIP ke Documents/JadxDroid.</string>
+	<string name="option_skip_resources">Lewati resources (hemat memori)</string>
+	<string name="action_pick">Pilih file &amp; mulai</string>
+	<string name="action_cancel">Batalkan</string>
+	<string name="phase_idle">Belum ada proses.</string>
+	<string name="phase_queued">Menunggu antrean…</string>
+	<string name="phase_copying">Menyalin file input…</string>
+	<string name="phase_decompiling">Dekompilasi berjalan…</string>
+	<string name="phase_exporting">Mengekspor ZIP…</string>
+	<string name="phase_done">Selesai.</string>
+	<string name="phase_failed">Gagal.</string>
+	<string name="phase_cancelled">Dibatalkan.</string>
+	<string name="progress_format">%1$d / %2$d</string>
+	<string name="file_label">File: %1$s</string>
+	<string name="result_path">Hasil: %1$s</string>
+	<string name="result_counts">Error: %1$d, peringatan: %2$d</string>
+	<string name="failure_label">Penyebab (mentah):</string>
+	<string name="notification_channel_name">Proses dekompilasi</string>
+	<string name="notification_title">JadxDroid</string>
+	<string name="notification_text">Dekompilasi sedang berjalan</string>
+</resources>
