@@ -30,6 +30,9 @@ val overriddenFiles = listOf(
 	"jadx/core/dex/visitors/finaly/traverser/handlers/MergePathActivePathTraverserHandler.java",
 	"jadx/core/utils/Utils.java",
 	"jadx/zip/parser/ZipDeflate.java",
+	// Heap pressure on large APKs: dex mapped off-heap, entries probed instead of fully read:
+	"jadx/plugins/input/dex/DexFileLoader.java",
+	"jadx/plugins/input/dex/DexReader.java",
 )
 
 val prepareJadxSources by tasks.registering(Sync::class) {

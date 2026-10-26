@@ -13,6 +13,9 @@ Dekompiler APK / DEX / JAR berbasis [JADX](https://github.com/skylot/jadx) 1.5.6
 - `third_party/jadx/` — JADX 1.5.6 asli, tidak diubah.
 - `scripts/ci/` — pembuat `laporan-untuk-claude.txt`.
 
+## APK besar
+Heap Java aplikasi dibatasi sistem (±512 MB di banyak perangkat). DEX dipetakan ke memori native; untuk APK yang DEX-nya sangat besar atau setelah `OutOfMemoryError`, aplikasi otomatis memakai mode per-DEX (satu `classesN.dex` per pass). Hasilnya tetap berupa satu ZIP, dengan catatan mode di `JADXDROID-NOTES.txt`.
+
 ## Rilis
 Versi memakai pola `X.Y.Z-android.N` (X.Y.Z = versi JADX upstream, N = urutan rilis Android).
 1. Tambahkan bagian `## X.Y.Z-android.N — tanggal` di paling atas `CHANGELOG.md`, push ke `main`, tunggu workflow *Android CI* selesai.
