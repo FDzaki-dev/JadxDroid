@@ -30,6 +30,7 @@ jobs:
         run: |
           chmod +x gradlew
           mkdir -p ci-logs
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
       # Non-blocking validation: lintDebug + detekt (tool failure is reported as NOT VERIFIED, never as pass).
       - name: Android Lint
@@ -69,6 +70,7 @@ jobs:
         run: ./gradlew assembleRelease 2>&1 | tee ci-logs/release.log
 
       - name: Collect report
+        id: report
         if: always()
         env:
           LINT_OUTCOME: ${{ steps.lint.outcome }}
@@ -81,15 +83,15 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: laporan-untuk-claude
-          path: laporan-untuk-claude.txt
+          name: ${{ steps.report.outputs.report_name || format('laporan-JadxDroid-{0}-run{1}', env.SHORT_SHA, github.run_number) }}
+          path: laporan-*.txt
           retention-days: 7
 
       - name: Upload APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: apk
+          name: apk-JadxDroid-${{ env.SHORT_SHA }}-run${{ github.run_number }}
           path: app/build/outputs/apk/**/*.apk
           if-no-files-found: ignore
           retention-days: 7

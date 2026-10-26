@@ -3,7 +3,17 @@
 # Rule: tool unavailable / failed / report absent  =>  NOT VERIFIED (never "pass").
 set -u
 
-OUT="laporan-untuk-claude.txt"
+PROJECT="JadxDroid"
+SHA="${GITHUB_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
+SHORT_SHA="${SHA:0:7}"
+RUN_NUMBER="${GITHUB_RUN_NUMBER:-local}"
+# Batch comes from PROJECT_STATE.md ("Batch vN" in the resume point) so the report ties back to the ZIP name.
+BATCH="$(grep -m1 -oE 'Batch v[0-9]+' PROJECT_STATE.md 2>/dev/null | head -n 1 | sed 's/Batch //')"
+BATCH="${BATCH:-vNA}"
+REPORT_ID="${PROJECT}_${BATCH}-${SHORT_SHA}-run${RUN_NUMBER}"
+REPORT_NAME="laporan-${REPORT_ID}"
+OUT="${REPORT_NAME}.txt"
+rm -f laporan-*.txt
 LINT_REPORT="app/build/reports/lint/lint-results.txt"
 DETEKT_REPORT="app/build/reports/detekt/detekt.txt"
 MAX_LINES=400
@@ -63,7 +73,15 @@ section_build() {
 }
 
 {
-  echo "LAPORAN CI $(date -u +%Y-%m-%dT%H:%M:%SZ) commit=${GITHUB_SHA:-local}"
+  echo "LAPORAN CI — ${PROJECT}"
+  echo "ID laporan : ${REPORT_ID}"
+  echo "Proyek     : ${PROJECT} (${GITHUB_REPOSITORY:-lokal})"
+  echo "Batch      : ${BATCH} (ZIP ${PROJECT}_${BATCH}.zip)"
+  echo "Commit     : ${SHA}  \"$(git log -1 --pretty=%s 2>/dev/null || echo '-')\""
+  echo "Cabang     : ${GITHUB_REF_NAME:-lokal} (${GITHUB_EVENT_NAME:-lokal})"
+  echo "Run        : #${RUN_NUMBER} percobaan ${GITHUB_RUN_ATTEMPT:-1}  ${GITHUB_SERVER_URL:-}/${GITHUB_REPOSITORY:-}/actions/runs/${GITHUB_RUN_ID:-}"
+  echo "Workflow   : ${GITHUB_WORKFLOW:-lokal}"
+  echo "Waktu UTC  : $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
   section_build "assembleDebug" "${DEBUG_OUTCOME:-}" "debug"
   echo
@@ -74,4 +92,8 @@ section_build() {
   section_detekt
 } > "$OUT"
 
+{
+  echo "report_name=${REPORT_NAME}"
+  echo "report_file=${OUT}"
+} >> "${GITHUB_OUTPUT:-/dev/null}"
 echo "Laporan ditulis: $OUT ($(wc -l < "$OUT") baris)"

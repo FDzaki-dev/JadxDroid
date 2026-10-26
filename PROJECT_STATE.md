@@ -1,19 +1,24 @@
 # PROJECT_STATE — JadxDroid
 
 ## [RESUME POINT]
-[Batch v3: skrip DAILY UPDATE terverifikasi disematkan] -> [v2 sudah ter-push dari Termux (dikonfirmasi pengguna); hasil Android CI v2 belum dibaca, jadi NewApi = 0 belum terbukti] -> [Push v3 dengan skrip di bawah, kirim `laporan-untuk-claude.txt` terbaru; bila NewApi = 0 dan build hijau, jalankan RELEASE untuk tag `v1.5.6-android.2`]
+[Batch v4: laporan CI beridentitas + gerbang CI hijau pada rilis] -> [CI commit b3a3e74 hijau: assembleDebug/Release OK, lint 0 temuan (NewApi = 0), detekt 0; `release.yml` belum pernah dijalankan] -> [Push v4, tunggu Android CI v4 hijau, jalankan DRY-RUN rilis dan perbaiki bila gagal, lalu RELEASE tag `v1.5.6-android.2`]
 
-Commit message batch: docs: sematkan skrip DAILY UPDATE terverifikasi di PROJECT_STATE
+Commit message batch: ci: nama laporan beridentitas dan gerbang CI hijau sebelum rilis
 
 ## Skrip Termux terverifikasi (placeholder terisi: BRANDING_NAME = TERMUX_ROOT = JadxDroid)
 Dipakai apa adanya; pesan commit diambil dari baris "Commit message batch" di atas dan diperbarui tiap batch. Diuji di sandbox (repo asal tiruan + ZIP asli) sampai push; DAILY UPDATE terkonfirmasi sukses di Termux pengguna.
 
 ### DAILY UPDATE
 ```bash
-LATEST_ZIP="$(ls -t ~/storage/downloads/JadxDroid*.zip 2>/dev/null | head -n 1)" && [ -f "$LATEST_ZIP" ] || { echo "ERROR: ZIP tidak ditemukan!"; exit 1; } && echo "[1/6] Pakai ZIP: $LATEST_ZIP" && unzip -t "$LATEST_ZIP" >/dev/null || { echo "ERROR: ZIP rusak/tidak valid!"; exit 1; } && PROJ_DIR=~/projects/JadxDroid && mkdir -p "$PROJ_DIR" && cd "$PROJ_DIR" && ( [ -d .git ] || (git init && git branch -M main) ) && (git add -A && (git diff --staged --quiet || git commit -q -m "chore: auto-save local state before sync")) && echo "[2/6] Ekstrak ZIP..." && TMP_EXTRACT="tmp_extract_$(date +%s)" && rm -rf "$TMP_EXTRACT" && mkdir -p "$TMP_EXTRACT" && unzip -oq "$LATEST_ZIP" -d "$TMP_EXTRACT" || { echo "ERROR: Gagal ekstrak ZIP!"; rm -rf "$TMP_EXTRACT"; exit 1; } && [ -f "$TMP_EXTRACT/app/src/main/AndroidManifest.xml" ] || { echo "ERROR: Struktur ZIP tidak valid (Manifest hilang)!"; rm -rf "$TMP_EXTRACT"; exit 1; } && echo "[3/6] Sinkron dengan origin/main..." && git fetch origin main 2>/dev/null && git reset -q --hard FETCH_HEAD 2>/dev/null && OLD_COUNT=$(find . -type f ! -path './.git/*' ! -path "./$TMP_EXTRACT/*" | wc -l | tr -d ' ') && echo "[4/6] OLD_COUNT=$OLD_COUNT" && find . -mindepth 1 -maxdepth 1 ! -name '.*' ! -name "$TMP_EXTRACT" ! -name 'release.keystore' ! -name 'PROJECT_STATE.md' -exec rm -rf {} + && cp -r "$TMP_EXTRACT"/. ./ && rm -rf "$TMP_EXTRACT" && NEW_COUNT=$(find . -type f ! -path '*/.*' | wc -l | tr -d ' ') && echo "[5/6] NEW_COUNT=$NEW_COUNT" && if [ "$OLD_COUNT" -gt 0 ] && { [ "$NEW_COUNT" -lt "$((OLD_COUNT * 70 / 100))" ] || [ ! -f "app/src/main/AndroidManifest.xml" ]; }; then echo "ROLLBACK: Integritas struktur/file kritis drop!"; git reset --hard FETCH_HEAD 2>/dev/null; else echo "[6/6] Commit dan push..." && git branch -M main 2>/dev/null && git add -A && git commit -q -m "docs: sematkan skrip DAILY UPDATE terverifikasi di PROJECT_STATE" && git push -q origin main && echo "SELESAI: push berhasil"; fi
+LATEST_ZIP="$(ls -t ~/storage/downloads/JadxDroid*.zip 2>/dev/null | head -n 1)" && [ -f "$LATEST_ZIP" ] || { echo "ERROR: ZIP tidak ditemukan!"; exit 1; } && echo "[1/6] Pakai ZIP: $LATEST_ZIP" && unzip -t "$LATEST_ZIP" >/dev/null || { echo "ERROR: ZIP rusak/tidak valid!"; exit 1; } && PROJ_DIR=~/projects/JadxDroid && mkdir -p "$PROJ_DIR" && cd "$PROJ_DIR" && ( [ -d .git ] || (git init && git branch -M main) ) && (git add -A && (git diff --staged --quiet || git commit -q -m "chore: auto-save local state before sync")) && echo "[2/6] Ekstrak ZIP..." && TMP_EXTRACT="tmp_extract_$(date +%s)" && rm -rf "$TMP_EXTRACT" && mkdir -p "$TMP_EXTRACT" && unzip -oq "$LATEST_ZIP" -d "$TMP_EXTRACT" || { echo "ERROR: Gagal ekstrak ZIP!"; rm -rf "$TMP_EXTRACT"; exit 1; } && [ -f "$TMP_EXTRACT/app/src/main/AndroidManifest.xml" ] || { echo "ERROR: Struktur ZIP tidak valid (Manifest hilang)!"; rm -rf "$TMP_EXTRACT"; exit 1; } && echo "[3/6] Sinkron dengan origin/main..." && git fetch origin main 2>/dev/null && git reset -q --hard FETCH_HEAD 2>/dev/null && OLD_COUNT=$(find . -type f ! -path './.git/*' ! -path "./$TMP_EXTRACT/*" | wc -l | tr -d ' ') && echo "[4/6] OLD_COUNT=$OLD_COUNT" && find . -mindepth 1 -maxdepth 1 ! -name '.*' ! -name "$TMP_EXTRACT" ! -name 'release.keystore' ! -name 'PROJECT_STATE.md' -exec rm -rf {} + && cp -r "$TMP_EXTRACT"/. ./ && rm -rf "$TMP_EXTRACT" && NEW_COUNT=$(find . -type f ! -path '*/.*' | wc -l | tr -d ' ') && echo "[5/6] NEW_COUNT=$NEW_COUNT" && if [ "$OLD_COUNT" -gt 0 ] && { [ "$NEW_COUNT" -lt "$((OLD_COUNT * 70 / 100))" ] || [ ! -f "app/src/main/AndroidManifest.xml" ]; }; then echo "ROLLBACK: Integritas struktur/file kritis drop!"; git reset --hard FETCH_HEAD 2>/dev/null; else echo "[6/6] Commit dan push..." && git branch -M main 2>/dev/null && git add -A && git commit -q -m "ci: nama laporan beridentitas dan gerbang CI hijau sebelum rilis" && git push -q origin main && echo "SELESAI: push berhasil"; fi
 ```
 
-### RELEASE (setelah Android CI hijau dan NewApi = 0 di laporan; tag = versi di CHANGELOG)
+### DRY-RUN RILIS (tanpa publikasi; menguji seluruh jalur: gerbang detekt/NewApi, keystore, build, apksigner, versi, checksum)
+```bash
+cd ~/projects/JadxDroid && gh workflow run release.yml -f version=1.5.6-android.2 && sleep 8 && RUN_ID="$(gh run list --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')" && gh run watch "$RUN_ID" --exit-status || { echo "DRY-RUN GAGAL, log di bawah:"; gh run view "$RUN_ID" --log-failed; }
+```
+
+### RELEASE (setelah DRY-RUN sukses; Android CI harus hijau untuk commit yang di-tag, dicek otomatis oleh workflow; tag = versi di CHANGELOG)
 ```bash
 cd ~/projects/JadxDroid && git fetch origin main 2>/dev/null && [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "ERROR: HEAD belum sinkron dengan origin/main!"; false; } && git tag -a "v1.5.6-android.2" -m "JadxDroid 1.5.6-android.2" && git push origin "v1.5.6-android.2"
 ```
@@ -22,6 +27,17 @@ cd ~/projects/JadxDroid && git fetch origin main 2>/dev/null && [ "$(git rev-par
 1. Box A: `gh repo view ... -jq .url` salah, harus `--jq`; rantai `&&` berhenti sebelum remote/commit/push.
 2. DAILY UPDATE dan Box A: `tmp_extract_*` ada di dalam proyek dan tidak berawalan titik, jadi ikut terhapus oleh `find ... -exec rm -rf` sebelum `cp -r "$TMP_EXTRACT"/. ./` (error `cannot stat`, folder proyek kosong). Perbaikan: `! -name "$TMP_EXTRACT"` pada find penghapus dan `! -path "./$TMP_EXTRACT/*"` pada penghitung.
 3. DAILY UPDATE: `find ... -exec printf '.' \;` memulai satu proses per file (± 5.000 proses karena ikut menghitung `tmp_extract_*`), terasa hang di Termux; selain itu hitungan ganda memicu ROLLBACK palsu. Perbaikan: `find ... | wc -l`, `unzip -oq`, penanda langkah `[1/6]`..`[6/6]`.
+
+## Batch v4 — 2026-10-26
+Task 1 (2 file): identitas laporan CI. `scripts/ci/collect-report.sh` + `.github/workflows/android-ci.yml`.
+- Nama file dan artefak: `laporan-JadxDroid_v<batch>-<sha7>-run<N>` (batch dibaca dari "Batch vN" pertama di PROJECT_STATE.md, jadi sama dengan nama ZIP). ZIP unduhan dari Actions otomatis ikut bernama itu. Berkas `laporan-*.txt` lama dihapus sebelum menulis.
+- Header laporan: ID laporan, proyek + repo, batch + nama ZIP, SHA lengkap + subjek commit, cabang/event, nomor run + percobaan + URL, workflow, waktu UTC.
+- Artefak APK CI: `apk-JadxDroid-<sha7>-run<N>`.
+Task 2 (1 file): `release.yml` menolak tag bila Android CI untuk commit yang sama belum selesai atau tidak sukses (`gh run list --commit`; izin `actions: read`). Dry-run (`workflow_dispatch`) tidak terkena gerbang ini.
+- Diuji lokal: regex versi, `versionCode`, ekstraksi catatan rilis dari CHANGELOG (termasuk batas `.2` vs `.20`), skrip laporan dengan env CI. Belum teruji di runner: `apksigner`/`aapt2`, atestasi, `gh release create`.
+
+### Hasil CI commit b3a3e74 (v2/v3)
+- assembleDebug OK, assembleRelease OK, detekt 0 temuan, lint 0 temuan (28 peringatan upstream engine disaring, error engine = 0, jadi NewApi = 0).
 
 ## Batch v3 — 2026-10-26
 - Hanya dokumentasi atas permintaan eksplisit: skrip terverifikasi + temuan di atas disematkan di file ini. Tidak ada perubahan kode, build, atau CI.
