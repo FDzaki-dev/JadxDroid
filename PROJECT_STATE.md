@@ -1,9 +1,30 @@
 # PROJECT_STATE — JadxDroid
 
 ## [RESUME POINT]
-[Batch v2: tutup NewApi engine + jalur rilis GitHub] -> [KODE BELUM DIVALIDASI CI: v1 = assembleDebug/Release sukses, detekt 0 temuan, lint 7 error NewApi (kini dipatch); v2 NOT VERIFIED sampai CI jalan] -> [DAILY UPDATE v2, tunggu Android CI hijau (cek NewApi = 0 di laporan), lalu tag `v1.5.6-android.2` untuk rilis pertama]
+[Batch v3: skrip DAILY UPDATE terverifikasi disematkan] -> [v2 sudah ter-push dari Termux (dikonfirmasi pengguna); hasil Android CI v2 belum dibaca, jadi NewApi = 0 belum terbukti] -> [Push v3 dengan skrip di bawah, kirim `laporan-untuk-claude.txt` terbaru; bila NewApi = 0 dan build hijau, jalankan RELEASE untuk tag `v1.5.6-android.2`]
 
-Commit message batch: fix: tutup NewApi engine API 33-35 dan tambah jalur rilis GitHub
+Commit message batch: docs: sematkan skrip DAILY UPDATE terverifikasi di PROJECT_STATE
+
+## Skrip Termux terverifikasi (placeholder terisi: BRANDING_NAME = TERMUX_ROOT = JadxDroid)
+Dipakai apa adanya; pesan commit diambil dari baris "Commit message batch" di atas dan diperbarui tiap batch. Diuji di sandbox (repo asal tiruan + ZIP asli) sampai push; DAILY UPDATE terkonfirmasi sukses di Termux pengguna.
+
+### DAILY UPDATE
+```bash
+LATEST_ZIP="$(ls -t ~/storage/downloads/JadxDroid*.zip 2>/dev/null | head -n 1)" && [ -f "$LATEST_ZIP" ] || { echo "ERROR: ZIP tidak ditemukan!"; exit 1; } && echo "[1/6] Pakai ZIP: $LATEST_ZIP" && unzip -t "$LATEST_ZIP" >/dev/null || { echo "ERROR: ZIP rusak/tidak valid!"; exit 1; } && PROJ_DIR=~/projects/JadxDroid && mkdir -p "$PROJ_DIR" && cd "$PROJ_DIR" && ( [ -d .git ] || (git init && git branch -M main) ) && (git add -A && (git diff --staged --quiet || git commit -q -m "chore: auto-save local state before sync")) && echo "[2/6] Ekstrak ZIP..." && TMP_EXTRACT="tmp_extract_$(date +%s)" && rm -rf "$TMP_EXTRACT" && mkdir -p "$TMP_EXTRACT" && unzip -oq "$LATEST_ZIP" -d "$TMP_EXTRACT" || { echo "ERROR: Gagal ekstrak ZIP!"; rm -rf "$TMP_EXTRACT"; exit 1; } && [ -f "$TMP_EXTRACT/app/src/main/AndroidManifest.xml" ] || { echo "ERROR: Struktur ZIP tidak valid (Manifest hilang)!"; rm -rf "$TMP_EXTRACT"; exit 1; } && echo "[3/6] Sinkron dengan origin/main..." && git fetch origin main 2>/dev/null && git reset -q --hard FETCH_HEAD 2>/dev/null && OLD_COUNT=$(find . -type f ! -path './.git/*' ! -path "./$TMP_EXTRACT/*" | wc -l | tr -d ' ') && echo "[4/6] OLD_COUNT=$OLD_COUNT" && find . -mindepth 1 -maxdepth 1 ! -name '.*' ! -name "$TMP_EXTRACT" ! -name 'release.keystore' ! -name 'PROJECT_STATE.md' -exec rm -rf {} + && cp -r "$TMP_EXTRACT"/. ./ && rm -rf "$TMP_EXTRACT" && NEW_COUNT=$(find . -type f ! -path '*/.*' | wc -l | tr -d ' ') && echo "[5/6] NEW_COUNT=$NEW_COUNT" && if [ "$OLD_COUNT" -gt 0 ] && { [ "$NEW_COUNT" -lt "$((OLD_COUNT * 70 / 100))" ] || [ ! -f "app/src/main/AndroidManifest.xml" ]; }; then echo "ROLLBACK: Integritas struktur/file kritis drop!"; git reset --hard FETCH_HEAD 2>/dev/null; else echo "[6/6] Commit dan push..." && git branch -M main 2>/dev/null && git add -A && git commit -q -m "docs: sematkan skrip DAILY UPDATE terverifikasi di PROJECT_STATE" && git push -q origin main && echo "SELESAI: push berhasil"; fi
+```
+
+### RELEASE (setelah Android CI hijau dan NewApi = 0 di laporan; tag = versi di CHANGELOG)
+```bash
+cd ~/projects/JadxDroid && git fetch origin main 2>/dev/null && [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "ERROR: HEAD belum sinkron dengan origin/main!"; false; } && git tag -a "v1.5.6-android.2" -m "JadxDroid 1.5.6-android.2" && git push origin "v1.5.6-android.2"
+```
+
+### Temuan pada skrip terkunci (bawa perbaikannya ke master)
+1. Box A: `gh repo view ... -jq .url` salah, harus `--jq`; rantai `&&` berhenti sebelum remote/commit/push.
+2. DAILY UPDATE dan Box A: `tmp_extract_*` ada di dalam proyek dan tidak berawalan titik, jadi ikut terhapus oleh `find ... -exec rm -rf` sebelum `cp -r "$TMP_EXTRACT"/. ./` (error `cannot stat`, folder proyek kosong). Perbaikan: `! -name "$TMP_EXTRACT"` pada find penghapus dan `! -path "./$TMP_EXTRACT/*"` pada penghitung.
+3. DAILY UPDATE: `find ... -exec printf '.' \;` memulai satu proses per file (± 5.000 proses karena ikut menghitung `tmp_extract_*`), terasa hang di Termux; selain itu hitungan ganda memicu ROLLBACK palsu. Perbaikan: `find ... | wc -l`, `unzip -oq`, penanda langkah `[1/6]`..`[6/6]`.
+
+## Batch v3 — 2026-10-26
+- Hanya dokumentasi atas permintaan eksplisit: skrip terverifikasi + temuan di atas disematkan di file ini. Tidak ada perubahan kode, build, atau CI.
 
 ## Batch v2 — 2026-10-24
 Task 1 (8 file): 6 override upstream baru + daftar override di `jadx-engine/build.gradle.kts` + guard API 33 di `MainActivity.kt`. Justifikasi 8-file: perubahan murni kompatibilitas platform (API 33/35 tidak ada di Android 12/13), tanpa perubahan fitur.
