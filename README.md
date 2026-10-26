@@ -18,10 +18,10 @@ Heap Java aplikasi dibatasi sistem (±512 MB di banyak perangkat). DEX dipetakan
 
 ## Rilis
 Versi memakai pola `X.Y.Z-android.N` (X.Y.Z = versi JADX upstream, N = urutan rilis Android).
-1. Tambahkan bagian `## X.Y.Z-android.N — tanggal` di paling atas `CHANGELOG.md`, push ke `main`, tunggu workflow *Android CI* selesai.
-2. Beri tag pada commit tersebut: `git tag -a vX.Y.Z-android.N -m "JadxDroid X.Y.Z-android.N" && git push origin vX.Y.Z-android.N`.
-3. Workflow *Release* menjalankan detekt + lint (NewApi), build APK bertanda tangan, verifikasi tanda tangan/versi, lalu menerbitkan APK, `SHA256SUMS.txt`, dan file mapping di GitHub Releases.
-Uji coba tanpa publikasi: Actions → Release → Run workflow (isi versi); hasil ada di artefak `release-dry-run`. Prasyarat: 4 secret dari Box B (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`).
+1. Tambahkan bagian `## X.Y.Z-android.N — tanggal` di paling atas `CHANGELOG.md` dan samakan default `releaseVersion` di `app/build.gradle.kts`.
+2. Jalankan perintah "UPDATE + RILIS" dari `PROJECT_STATE.md`: push ke `main`, lalu tag dikirim otomatis dari CHANGELOG.
+3. Workflow *Release* menunggu Android CI hijau, menjalankan detekt + lint (NewApi), membangun APK bertanda tangan, memverifikasi tanda tangan dan versi, lalu menerbitkan APK, `SHA256SUMS.txt`, dan file mapping di GitHub Releases.
+Bila gagal, jangan pakai ulang tag: perbaiki dan naikkan N. Uji coba tanpa publikasi: Actions → Release → Run workflow. Prasyarat: 4 secret dari Box B (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`).
 
 Status saat ini dan langkah berikutnya: lihat `PROJECT_STATE.md`.
 

@@ -21,7 +21,7 @@ defaults:
 jobs:
   release:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
       actions: read
       contents: write
@@ -47,17 +47,35 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - name: Require green Android CI for this commit
+      - name: Wait for green Android CI on this commit
         if: env.PUBLISH == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          CONCLUSION="$(gh run list --workflow android-ci.yml --commit "$GITHUB_SHA" --status completed --json conclusion --jq '.[0].conclusion // empty')"
-          if [ "$CONCLUSION" != "success" ]; then
-            echo "::error::Android CI untuk commit $GITHUB_SHA belum selesai atau tidak sukses (hasil: '${CONCLUSION:-tidak ada}'). Tunggu CI hijau, lalu tag ulang."
-            exit 1
-          fi
+          MISSING=0
+          for _ in $(seq 1 90); do
+            RESULT="$(gh run list --workflow android-ci.yml --commit "$GITHUB_SHA" --limit 1 --json status,conclusion --jq '.[0] // empty | "\(.status) \(.conclusion)"')"
+            if [ -z "$RESULT" ]; then
+              MISSING=$((MISSING + 1))
+              if [ "$MISSING" -gt 10 ]; then
+                echo "::error::Tidak ada run Android CI untuk commit $GITHUB_SHA."
+                exit 1
+              fi
+            else
+              STATUS="${RESULT%% *}"
+              CONCLUSION="${RESULT#* }"
+              echo "Android CI: status=$STATUS conclusion=$CONCLUSION"
+              if [ "$STATUS" = "completed" ]; then
+                [ "$CONCLUSION" = "success" ] && exit 0
+                echo "::error::Android CI untuk commit $GITHUB_SHA tidak sukses ($CONCLUSION)."
+                exit 1
+              fi
+            fi
+            sleep 30
+          done
+          echo "::error::Android CI belum selesai setelah 45 menit."
+          exit 1
 
       - name: Extract release notes from CHANGELOG.md
         run: |
