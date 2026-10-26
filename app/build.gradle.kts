@@ -8,6 +8,13 @@ plugins {
 	alias(libs.plugins.detekt)
 }
 
+// Release version: "<upstream jadx version>-android.<n>", injected by the release workflow from the git tag.
+val releaseVersion: String = (findProperty("releaseVersion") as String?) ?: "1.5.6-android.2"
+val versionMatch = requireNotNull(Regex("""(\d+)\.(\d+)\.(\d+)-android\.(\d+)""").matchEntire(releaseVersion)) {
+	"releaseVersion harus berformat X.Y.Z-android.N, dapat: $releaseVersion"
+}
+val (vMajor, vMinor, vPatch, vBuild) = versionMatch.destructured.toList().map(String::toInt)
+
 // Signing material comes from the environment (CI decodes the keystore secret); never hardcoded.
 val keystorePath: String? = System.getenv("KEYSTORE_PATH")
 val hasReleaseSigning = !keystorePath.isNullOrBlank() && file(keystorePath).exists()
@@ -20,8 +27,8 @@ android {
 		applicationId = "com.jadxdroid.app"
 		minSdk = 31
 		targetSdk = 35
-		versionCode = 1
-		versionName = "1.5.6-android.1"
+		versionCode = (vMajor * 10_000 + vMinor * 100 + vPatch) * 100 + vBuild
+		versionName = releaseVersion
 	}
 
 	signingConfigs {

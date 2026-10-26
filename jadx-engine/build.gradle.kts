@@ -23,6 +23,13 @@ val overriddenFiles = listOf(
 	"jadx/core/utils/android/Res9patchStreamDecoder.java",
 	"jadx/core/utils/files/FileUtils.java",
 	"jadx/zip/fallback/FallbackZipParser.java",
+	// API 33/35 calls flagged by lintDebug (NewApi) on minSdk 31:
+	"jadx/api/ResourceFile.java",
+	"jadx/api/ResourcesLoader.java",
+	"jadx/core/dex/visitors/SaveCode.java",
+	"jadx/core/dex/visitors/finaly/traverser/handlers/MergePathActivePathTraverserHandler.java",
+	"jadx/core/utils/Utils.java",
+	"jadx/zip/parser/ZipDeflate.java",
 )
 
 val prepareJadxSources by tasks.registering(Sync::class) {

@@ -25,10 +25,11 @@ section_lint() {
         id = substr($0, RSTART + 1, RLENGTH - 2)
         if (id ~ noise) keep = 0
       }
+      if (keep && $0 ~ /: Warning: / && $0 ~ /jadx-engine\/build\/generated\//) { keep = 0; engine_dropped++ }
       if (keep) count++
     }
     keep { print }
-    END { printf "\nTEMUAN LINT (error+warning, noise disaring): %d\n", count }
+    END { printf "\nTEMUAN LINT (error+warning, noise disaring): %d | warning upstream engine disaring: %d (error engine tetap ditampilkan)\n", count, engine_dropped }
   ' "$LINT_REPORT" | sed "s#$PWD/##g" | head -n "$MAX_LINES"
 }
 

@@ -2,6 +2,7 @@ package com.jadxdroid.app
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -36,6 +37,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestNotificationPermission() {
+        // POST_NOTIFICATIONS only exists on API 33+; Android 12/12L show foreground notifications without it.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
         if (!granted) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)

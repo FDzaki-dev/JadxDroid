@@ -13,6 +13,13 @@ Dekompiler APK / DEX / JAR berbasis [JADX](https://github.com/skylot/jadx) 1.5.6
 - `third_party/jadx/` — JADX 1.5.6 asli, tidak diubah.
 - `scripts/ci/` — pembuat `laporan-untuk-claude.txt`.
 
+## Rilis
+Versi memakai pola `X.Y.Z-android.N` (X.Y.Z = versi JADX upstream, N = urutan rilis Android).
+1. Tambahkan bagian `## X.Y.Z-android.N — tanggal` di paling atas `CHANGELOG.md`, push ke `main`, tunggu workflow *Android CI* selesai.
+2. Beri tag pada commit tersebut: `git tag -a vX.Y.Z-android.N -m "JadxDroid X.Y.Z-android.N" && git push origin vX.Y.Z-android.N`.
+3. Workflow *Release* menjalankan detekt + lint (NewApi), build APK bertanda tangan, verifikasi tanda tangan/versi, lalu menerbitkan APK, `SHA256SUMS.txt`, dan file mapping di GitHub Releases.
+Uji coba tanpa publikasi: Actions → Release → Run workflow (isi versi); hasil ada di artefak `release-dry-run`. Prasyarat: 4 secret dari Box B (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`).
+
 Status saat ini dan langkah berikutnya: lihat `PROJECT_STATE.md`.
 
 Lisensi: Apache-2.0 (JADX upstream, lihat `third_party/jadx/LICENSE` dan `NOTICE`).
