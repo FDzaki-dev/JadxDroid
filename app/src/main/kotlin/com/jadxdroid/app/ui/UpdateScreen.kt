@@ -17,7 +17,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -27,15 +26,6 @@ import androidx.compose.ui.unit.dp
 import com.jadxdroid.app.R
 import com.jadxdroid.app.update.UpdatePhase
 import com.jadxdroid.app.update.UpdateUiState
-
-@Immutable
-class UpdateActions(
-    val onAutoCheck: () -> Unit,
-    val onCheck: () -> Unit,
-    val onDownload: () -> Unit,
-    val onCancel: () -> Unit,
-    val onInstall: () -> Unit,
-)
 
 private const val SHA_PREVIEW_CHARS = 12
 

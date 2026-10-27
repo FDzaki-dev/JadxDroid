@@ -1,10 +1,14 @@
 # CHANGELOG
 
-## 1.5.6-android.7 — 2026-10-27
+## 1.5.6-android.8 — 2026-10-27
+- Perbaikan gerbang rilis: `v1.5.6-android.7` diblokir detekt (MatchingDeclarationName pada kelas `UpdateActions`); kelas dipindah ke file sendiri tanpa perubahan perilaku.
 - Tab Update di aplikasi: saat dibuka, otomatis memeriksa rilis terbaru di GitHub dan menampilkan snapshot rilis (versi terpasang, versi terbaru, tanggal, ukuran, catatan rilis) selama memuat dan mengunduh.
 - Unduhan APK memakai stream Okio berbuffer di WorkManager (tahan rotasi, bisa dibatalkan); SHA-256 dihitung saat menulis dan dicocokkan dengan SHA256SUMS.txt rilis sebelum dipasang.
 - Pemasangan lewat PackageInstaller (APK ditulis ke sesi dengan Okio) dengan konfirmasi sistem; pembaruan hanya bisa menimpa APK yang bertanda tangan sama (rilis).
 - Izin baru: INTERNET dan REQUEST_INSTALL_PACKAGES.
+
+## 1.5.6-android.7 — tidak dirilis
+- Tag `v1.5.6-android.7` diblokir gerbang detekt (1 temuan: `MatchingDeclarationName`); perubahannya dirilis sebagai 1.5.6-android.8.
 
 ## 1.5.6-android.6 — 2026-10-27
 - Perbaikan gerbang rilis: `v1.5.6-android.5` diblokir detekt pada `DexSplitter.kt` (kedalaman blok `extractResourcesArchive` dan baris KDoc melebihi 120 kolom). Fungsi dipecah dan komentar diringkas; perilaku aplikasi tidak berubah.
