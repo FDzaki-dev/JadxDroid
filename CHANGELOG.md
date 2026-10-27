@@ -1,9 +1,12 @@
 # CHANGELOG
 
-## 1.5.6-android.3 — 2026-10-26
+## 1.5.6-android.4 — 2026-10-26
 - Memperbaiki `OutOfMemoryError` saat membuka APK besar (dilaporkan pada APK ±100 MB dengan banyak DEX): data DEX kini dipetakan ke memori native (di luar heap Java 512 MB) dan hanya entri DEX yang dibaca, bukan seluruh isi APK.
 - Mode per-DEX otomatis untuk APK raksasa atau setelah `OutOfMemoryError`: setiap `classesN.dex` didekompilasi terpisah (referensi lintas-DEX tidak terselesaikan penuh); `JADXDROID-NOTES.txt` di dalam ZIP hasil mencatat mode dan hasil tiap pass.
 - Jumlah thread JADX disesuaikan dengan heap perangkat.
+
+## 1.5.6-android.3 — tidak dirilis
+- Tag `v1.5.6-android.3` diblokir gerbang detekt (2 temuan: pemanggilan GC eksplisit dan baris terlalu panjang); perubahannya dirilis sebagai 1.5.6-android.4.
 
 ## 1.5.6-android.2 — 2026-10-24
 - Perbaikan crash Android 12/12L/13 dari laporan lint CI: `SaveCode` (simpan setiap class), `ZipDeflate` (baca isi APK), `ResourcesLoader`, `Utils`, `ResourceFile`, dan `MergePathActivePathTraverserHandler` tidak lagi memanggil API 33/35.

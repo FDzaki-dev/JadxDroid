@@ -33,34 +33,36 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Resolve version
+        id: version
         env:
           INPUT_VERSION: ${{ inputs.version }}
         run: |
+          source scripts/ci/lib.sh
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
             VERSION="$INPUT_VERSION"
           fi
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-android\.[0-9]+$ ]]; then
-            echo "::error::Versi tidak valid: '$VERSION' (format X.Y.Z-android.N)"
-            exit 1
+            ci_fail version "Versi tidak valid: '$VERSION' (format X.Y.Z-android.N)"
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Wait for green Android CI on this commit
+        id: ci_wait
         if: env.PUBLISH == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          source scripts/ci/lib.sh
           MISSING=0
           for _ in $(seq 1 90); do
             RESULT="$(gh run list --workflow android-ci.yml --commit "$GITHUB_SHA" --limit 1 --json status,conclusion --jq '.[0] // empty | "\(.status) \(.conclusion)"')"
             if [ -z "$RESULT" ]; then
               MISSING=$((MISSING + 1))
               if [ "$MISSING" -gt 10 ]; then
-                echo "::error::Tidak ada run Android CI untuk commit $GITHUB_SHA."
-                exit 1
+                ci_fail ci_wait "Tidak ada run Android CI untuk commit $GITHUB_SHA."
               fi
             else
               STATUS="${RESULT%% *}"
@@ -68,25 +70,24 @@ jobs:
               echo "Android CI: status=$STATUS conclusion=$CONCLUSION"
               if [ "$STATUS" = "completed" ]; then
                 [ "$CONCLUSION" = "success" ] && exit 0
-                echo "::error::Android CI untuk commit $GITHUB_SHA tidak sukses ($CONCLUSION)."
-                exit 1
+                ci_fail ci_wait "Android CI untuk commit $GITHUB_SHA tidak sukses ($CONCLUSION)."
               fi
             fi
             sleep 30
           done
-          echo "::error::Android CI belum selesai setelah 45 menit."
-          exit 1
+          ci_fail ci_wait "Android CI belum selesai setelah 45 menit."
 
       - name: Extract release notes from CHANGELOG.md
+        id: notes
         run: |
+          source scripts/ci/lib.sh
           awk -v h="## $VERSION" '
             $0 == h || index($0, h " ") == 1 { found = 1; next }
             found && /^## / { exit }
             found { print }
           ' CHANGELOG.md > release-notes.md
           if ! grep -q '[^[:space:]]' release-notes.md; then
-            echo "::error::CHANGELOG.md tidak punya bagian '## $VERSION'. Tambahkan dulu, lalu tag ulang."
-            exit 1
+            ci_fail notes "CHANGELOG.md tidak punya bagian '## $VERSION'. Tambahkan dulu, lalu buat versi baru."
           fi
           {
             echo
@@ -103,64 +104,70 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       - name: Quality gate (detekt, NewApi)
+        id: gate
         run: |
+          source scripts/ci/lib.sh
           chmod +x gradlew
-          ./gradlew detekt
-          ./gradlew lintDebug
+          ./gradlew detekt 2>&1 | tee ci-logs/gate-detekt.log
+          ./gradlew lintDebug 2>&1 | tee ci-logs/gate-lint.log
           if grep -E ': Error: .*\[NewApi\]' app/build/reports/lint/lint-results.txt; then
-            echo "::error::Ada panggilan API di atas minSdk 31 (NewApi). Rilis dibatalkan."
-            exit 1
+            ci_fail gate "Ada panggilan API di atas minSdk 31 (NewApi). Rilis dibatalkan."
           fi
 
       - name: Decode keystore
+        id: keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          source scripts/ci/lib.sh
           for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
             if [ -z "${!name}" ]; then
-              echo "::error::Secret $name kosong. Jalankan Box B (GitHub Secrets) dulu."
-              exit 1
+              ci_fail keystore "Secret $name kosong. Jalankan Box B (GitHub Secrets) dulu."
             fi
           done
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
           echo "KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
 
       - name: Build signed release APK
+        id: build
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease -PreleaseVersion="$VERSION"
+        run: |
+          source scripts/ci/lib.sh
+          ./gradlew assembleRelease -PreleaseVersion="$VERSION" 2>&1 | tee ci-logs/build-release.log
 
       - name: Verify signature and version, stage assets
+        id: verify
         run: |
+          source scripts/ci/lib.sh
           mapfile -t APKS < <(find app/build/outputs/apk/release -name '*.apk')
           if [ "${#APKS[@]}" -ne 1 ]; then
-            echo "::error::Harus tepat satu APK release, ditemukan ${#APKS[@]}"
-            exit 1
+            ci_fail verify "Harus tepat satu APK release, ditemukan ${#APKS[@]}"
           fi
           APK="${APKS[0]}"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
           AAPT2="$(find "$ANDROID_HOME/build-tools" -name aapt2 -type f | sort -V | tail -n 1)"
           if [ ! -x "$APKSIGNER" ] || [ ! -x "$AAPT2" ]; then
-            echo "::error::apksigner/aapt2 tidak ditemukan di build-tools"
-            exit 1
+            ci_fail verify "apksigner/aapt2 tidak ditemukan di build-tools"
           fi
           "$APKSIGNER" verify --print-certs "$APK"
           BADGING="$("$AAPT2" dump badging "$APK")"
           IFS='.-' read -r MAJOR MINOR PATCH _ BUILD <<< "$VERSION"
           EXPECTED_CODE=$(( (MAJOR * 10000 + MINOR * 100 + PATCH) * 100 + BUILD ))
-          grep -q "versionName='$VERSION'" <<< "$BADGING" || { echo "::error::versionName APK != $VERSION"; exit 1; }
-          grep -q "versionCode='$EXPECTED_CODE'" <<< "$BADGING" || { echo "::error::versionCode APK != $EXPECTED_CODE"; exit 1; }
+          grep -q "versionName='$VERSION'" <<< "$BADGING" || ci_fail verify "versionName APK != $VERSION"
+          grep -q "versionCode='$EXPECTED_CODE'" <<< "$BADGING" || ci_fail verify "versionCode APK != $EXPECTED_CODE"
           mkdir -p dist
           cp "$APK" "dist/JadxDroid-$VERSION.apk"
           cp app/build/outputs/mapping/release/mapping.txt "dist/JadxDroid-$VERSION-mapping.txt"
           (cd dist && sha256sum "JadxDroid-$VERSION.apk" "JadxDroid-$VERSION-mapping.txt" > SHA256SUMS.txt && cat SHA256SUMS.txt)
 
       - name: Attest build provenance
+        id: attest
         if: env.PUBLISH == 'true'
         continue-on-error: true
         uses: actions/attest-build-provenance@v3
@@ -168,11 +175,13 @@ jobs:
           subject-path: dist/JadxDroid-*.apk
 
       - name: Publish GitHub Release
+        id: publish
         if: env.PUBLISH == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          source scripts/ci/lib.sh
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
           else
@@ -183,6 +192,49 @@ jobs:
         if: env.PUBLISH != 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: release-dry-run
+          name: release-dry-run-${{ env.VERSION }}
           path: dist/
           retention-days: 7
+
+      # ---- Failure pathway: identity-named bundle (version/tag, commit, run) + run-page summary ----
+      - name: Collect failure bundle
+        id: failure
+        if: failure()
+        env:
+          FAILURE_KIND: release
+          STEP_RESULTS: |
+            version=${{ steps.version.outcome }}
+            ci_wait=${{ steps.ci_wait.outcome }}
+            notes=${{ steps.notes.outcome }}
+            gate=${{ steps.gate.outcome }}
+            keystore=${{ steps.keystore.outcome }}
+            build=${{ steps.build.outcome }}
+            verify=${{ steps.verify.outcome }}
+            publish=${{ steps.publish.outcome }}
+        run: bash scripts/ci/collect-failure.sh
+
+      - name: Upload failure bundle
+        id: failure_upload
+        if: failure() && steps.failure.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.failure.outputs.name }}
+          path: failure-bundle/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Failure summary (how to fetch)
+        if: failure() && steps.failure_upload.outcome == 'success'
+        env:
+          ARTIFACT_URL: ${{ steps.failure_upload.outputs.artifact-url }}
+          ARTIFACT_NAME: ${{ steps.failure.outputs.name }}
+        run: |
+          {
+            echo
+            echo "Artefak kegagalan: [$ARTIFACT_NAME]($ARTIFACT_URL) (disimpan 14 hari). Berkas yang dibagikan: \`$ARTIFACT_NAME.txt\`."
+            echo
+            echo "Termux:"
+            echo '```bash'
+            echo "gh run download $GITHUB_RUN_ID -R $GITHUB_REPOSITORY -n $ARTIFACT_NAME -D ~/storage/downloads/$ARTIFACT_NAME"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

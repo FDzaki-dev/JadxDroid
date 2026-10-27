@@ -23,6 +23,9 @@ Versi memakai pola `X.Y.Z-android.N` (X.Y.Z = versi JADX upstream, N = urutan ri
 3. Workflow *Release* menunggu Android CI hijau, menjalankan detekt + lint (NewApi), membangun APK bertanda tangan, memverifikasi tanda tangan dan versi, lalu menerbitkan APK, `SHA256SUMS.txt`, dan file mapping di GitHub Releases.
 Bila gagal, jangan pakai ulang tag: perbaiki dan naikkan N. Uji coba tanpa publikasi: Actions → Release → Run workflow. Prasyarat: 4 secret dari Box B (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`).
 
+## Kegagalan CI/Release
+Run yang gagal menghasilkan artefak `gagal-JadxDroid_<versi-atau-batch>-<sha7>-run<N>[-a<percobaan>]` (disimpan 14 hari) berisi `gagal-<ID>.txt` (identitas, langkah gagal, penyebab mentah), `log/` (log tiap langkah), dan `laporan-tool/` (detekt, lint). Ringkasan yang sama tampil di halaman run (Summary) beserta perintah Termux `gh run download`. Berkas yang dibagikan untuk analisis cukup `gagal-<ID>.txt`.
+
 Status saat ini dan langkah berikutnya: lihat `PROJECT_STATE.md`.
 
 Lisensi: Apache-2.0 (JADX upstream, lihat `third_party/jadx/LICENSE` dan `NOTICE`).

@@ -45,7 +45,6 @@ class JadxRunner {
                 throw cancel
             } catch (error: Throwable) {
                 if (!error.isOutOfMemory() || !splittable) throw error
-                System.gc()
                 outDir.listFiles()?.forEach { it.deleteRecursively() }
                 decompilePerDex(input, outDir, options, plan, "OutOfMemoryError pada mode utuh", onProgress)
             }
@@ -109,7 +108,6 @@ class JadxRunner {
                 } catch (failure: Throwable) {
                     errors++
                     notes += "GAGAL $label: $failure"
-                    System.gc()
                 }
                 index++
             }
@@ -138,7 +136,11 @@ class JadxRunner {
     }
 
     private fun writeNotes(outDir: File, reason: String, options: Options, notes: List<String>) {
-        val resources = if (options.skipResources) "dilewati" else "hanya AndroidManifest.xml, resources.arsc, res/** (assets dan lib tidak diekspor)"
+        val resources = if (options.skipResources) {
+            "dilewati"
+        } else {
+            "hanya AndroidManifest.xml, resources.arsc, res/** (assets dan lib tidak diekspor)"
+        }
         File(outDir, NOTES_FILE).writeText(
             buildString {
                 appendLine("JadxDroid: mode per-DEX (hemat memori)")
