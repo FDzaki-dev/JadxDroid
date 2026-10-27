@@ -25,9 +25,9 @@ Bila gagal, jangan pakai ulang tag: perbaiki dan naikkan N. Uji coba tanpa publi
 
 ## Artifact GitHub Actions
 GitHub Release dan GitHub Artifact itu terpisah. Release (halaman rilis dari tag) berisi APK bertanda tangan, `SHA256SUMS.txt`, dan file mapping. Artifact (hasil run Actions) hanya 2 jalur:
-1. `apk-JadxDroid-<sha7>-run<N>` — APK hasil build CI (7 hari). Dry-run Release memakai `apk-JadxDroid-<versi>-dryrun-run<N>`.
-2. `laporan-JadxDroid_<versi-atau-batch>-<sha7>-run<N>[-a<percobaan>]` — laporan untuk Claude (7 hari). `laporan-<ID>.txt` selalu ada; bila ada langkah gagal, ikut `log/` (log tiap langkah) dan `laporan-tool/` (detekt, lint). Ringkasan yang sama tampil di halaman run (Summary); untuk run Release yang gagal juga ada perintah Termux `gh run download`. Berkas yang dibagikan untuk analisis cukup `laporan-<ID>.txt`.
-Rilis yang sukses tidak membuat artifact.
+1. `apk-JadxDroid-<sha7>-run<N>` — APK debug + release (7 hari), dibuat workflow *Android APK* (`android-apk.yml`) tanpa lint, detekt, atau laporan, jadi tidak menunggu keduanya. Dry-run Release memakai `apk-JadxDroid-<versi>-dryrun-run<N>`.
+2. `laporan-JadxDroid_<versi-atau-batch>-<sha7>-run<N>[-a<percobaan>]` — laporan untuk Claude (7 hari), dibuat workflow *Android CI* (`android-ci.yml`: lint, detekt, build, laporan). `laporan-<ID>.txt` selalu ada; bila ada langkah gagal, ikut `log/` (log tiap langkah) dan `laporan-tool/` (detekt, lint). Ringkasan yang sama tampil di halaman run (Summary); untuk run Release yang gagal juga ada perintah Termux `gh run download`. Berkas yang dibagikan untuk analisis cukup `laporan-<ID>.txt`.
+Kedua workflow berjalan paralel pada setiap push ke `main`. Nomor `run<N>` dihitung per workflow, jadi pasangan APK dan laporan dikenali dari `<sha7>`. Rilis yang sukses tidak membuat artifact.
 
 Status saat ini dan langkah berikutnya: lihat `PROJECT_STATE.md`.
 

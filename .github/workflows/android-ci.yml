@@ -79,7 +79,7 @@ jobs:
           RELEASE_OUTCOME: ${{ steps.release.outcome }}
         run: bash scripts/ci/collect-report.sh
 
-      # Artifact path 1 of 2 = APK (step below). Artifact path 2 of 2 = this report for Claude;
+      # Artifact path 2 of 2 = this report for Claude (path 1 = APK, built by android-apk.yml in parallel);
       # raw logs and tool reports are bundled in only when a step failed (see collect-report.sh).
       - name: Upload report
         if: always()
@@ -87,13 +87,4 @@ jobs:
         with:
           name: ${{ steps.report.outputs.report_name || format('laporan-JadxDroid-{0}-run{1}', env.SHORT_SHA, github.run_number) }}
           path: laporan-bundle/
-          retention-days: 7
-
-      - name: Upload APK
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: apk-JadxDroid-${{ env.SHORT_SHA }}-run${{ github.run_number }}
-          path: app/build/outputs/apk/**/*.apk
-          if-no-files-found: ignore
           retention-days: 7
