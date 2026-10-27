@@ -1,9 +1,13 @@
 # CHANGELOG
 
-## 1.5.6-android.5 — 2026-10-27
+## 1.5.6-android.6 — 2026-10-27
+- Perbaikan gerbang rilis: `v1.5.6-android.5` diblokir detekt pada `DexSplitter.kt` (kedalaman blok `extractResourcesArchive` dan baris KDoc melebihi 120 kolom). Fungsi dipecah dan komentar diringkas; perilaku aplikasi tidak berubah.
 - Memperbaiki `OutOfMemoryError` saat membuka APK besar (dilaporkan pada APK ±100 MB dengan banyak DEX): data DEX kini dipetakan ke memori native (di luar heap Java 512 MB) dan hanya entri DEX yang dibaca, bukan seluruh isi APK.
 - Mode per-DEX otomatis untuk APK raksasa atau setelah `OutOfMemoryError`: setiap `classesN.dex` didekompilasi terpisah (referensi lintas-DEX tidak terselesaikan penuh); `JADXDROID-NOTES.txt` di dalam ZIP hasil mencatat mode dan hasil tiap pass.
 - Jumlah thread JADX disesuaikan dengan heap perangkat.
+
+## 1.5.6-android.5 — tidak dirilis
+- Tag `v1.5.6-android.5` diblokir gerbang detekt (2 temuan di `DexSplitter.kt`: `NestedBlockDepth` dan `MaxLineLength`); perubahannya dirilis sebagai 1.5.6-android.6.
 
 ## 1.5.6-android.4 — tidak dirilis
 - Tag `v1.5.6-android.4` diblokir gerbang rilis: kompilasi Kotlin gagal (komentar KDoc di `DexSplitter.kt` memuat `res/**`; Kotlin menyarangkan komentar sehingga `/**` di dalam komentar tidak tertutup). Perubahannya dirilis sebagai 1.5.6-android.5.

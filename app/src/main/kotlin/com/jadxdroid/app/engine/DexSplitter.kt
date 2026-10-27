@@ -48,21 +48,26 @@ object DexSplitter {
         }
     }
 
-    /** Writes a small archive with the manifest, resources.arsc and the res folder, so resources decode without any dex. */
-    fun extractResourcesArchive(input: File, target: File): Int {
-        var copied = 0
+    /**
+     * Writes a small archive with the manifest, resources.arsc and the res folder,
+     * so resources decode without any dex.
+     */
+    fun extractResourcesArchive(input: File, target: File): Int =
         ZipFile(input).use { zip ->
             ZipOutputStream(target.sink().buffer().outputStream()).use { out ->
                 out.setLevel(Deflater.BEST_SPEED)
-                val outSink = out.sink()
-                for (entry in zip.entries().asSequence()) {
-                    if (entry.isDirectory || !isResourceEntry(entry.name)) continue
-                    out.putNextEntry(ZipEntry(entry.name))
-                    zip.getInputStream(entry).source().buffer().use { it.readAll(outSink) }
-                    out.closeEntry()
-                    copied++
-                }
+                copyResourceEntries(zip, out)
             }
+        }
+
+    private fun copyResourceEntries(zip: ZipFile, out: ZipOutputStream): Int {
+        val outSink = out.sink()
+        var copied = 0
+        for (entry in zip.entries().asSequence().filter { !it.isDirectory && isResourceEntry(it.name) }) {
+            out.putNextEntry(ZipEntry(entry.name))
+            zip.getInputStream(entry).source().buffer().use { it.readAll(outSink) }
+            out.closeEntry()
+            copied++
         }
         return copied
     }
