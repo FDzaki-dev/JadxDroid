@@ -192,11 +192,11 @@ jobs:
         if: env.PUBLISH != 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: release-dry-run-${{ env.VERSION }}
+          name: apk-JadxDroid-${{ env.VERSION }}-dryrun-run${{ github.run_number }}
           path: dist/
           retention-days: 7
 
-      # ---- Failure pathway: identity-named bundle (version/tag, commit, run) + run-page summary ----
+      # ---- Artifact path 2 of 2: report for Claude, only when this run failed (published releases create no artifact) ----
       - name: Collect failure bundle
         id: failure
         if: failure()
@@ -220,7 +220,7 @@ jobs:
         with:
           name: ${{ steps.failure.outputs.name }}
           path: failure-bundle/
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: warn
 
       - name: Failure summary (how to fetch)
@@ -231,7 +231,7 @@ jobs:
         run: |
           {
             echo
-            echo "Artefak kegagalan: [$ARTIFACT_NAME]($ARTIFACT_URL) (disimpan 14 hari). Berkas yang dibagikan: \`$ARTIFACT_NAME.txt\`."
+            echo "Artefak laporan: [$ARTIFACT_NAME]($ARTIFACT_URL) (disimpan 7 hari). Berkas yang dibagikan: \`$ARTIFACT_NAME.txt\`."
             echo
             echo "Termux:"
             echo '```bash'

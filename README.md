@@ -11,7 +11,7 @@ Dekompiler APK / DEX / JAR berbasis [JADX](https://github.com/skylot/jadx) 1.5.6
 - `app/` — UI Compose, WorkManager, ekspor ZIP, crash logger.
 - `jadx-engine/` — sumber JADX upstream di-compile sebagai library Android (`src/overrides/java` = file yang diganti).
 - `third_party/jadx/` — JADX 1.5.6 asli, tidak diubah.
-- `scripts/ci/` — pembuat `laporan-untuk-claude.txt`.
+- `scripts/ci/` — pembuat laporan untuk Claude (`laporan-<ID>.txt`).
 
 ## APK besar
 Heap Java aplikasi dibatasi sistem (±512 MB di banyak perangkat). DEX dipetakan ke memori native; untuk APK yang DEX-nya sangat besar atau setelah `OutOfMemoryError`, aplikasi otomatis memakai mode per-DEX (satu `classesN.dex` per pass). Hasilnya tetap berupa satu ZIP, dengan catatan mode di `JADXDROID-NOTES.txt`.
@@ -23,8 +23,11 @@ Versi memakai pola `X.Y.Z-android.N` (X.Y.Z = versi JADX upstream, N = urutan ri
 3. Workflow *Release* menunggu Android CI hijau, menjalankan detekt + lint (NewApi), membangun APK bertanda tangan, memverifikasi tanda tangan dan versi, lalu menerbitkan APK, `SHA256SUMS.txt`, dan file mapping di GitHub Releases.
 Bila gagal, jangan pakai ulang tag: perbaiki dan naikkan N. Uji coba tanpa publikasi: Actions → Release → Run workflow. Prasyarat: 4 secret dari Box B (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`).
 
-## Kegagalan CI/Release
-Run yang gagal menghasilkan artefak `gagal-JadxDroid_<versi-atau-batch>-<sha7>-run<N>[-a<percobaan>]` (disimpan 14 hari) berisi `gagal-<ID>.txt` (identitas, langkah gagal, penyebab mentah), `log/` (log tiap langkah), dan `laporan-tool/` (detekt, lint). Ringkasan yang sama tampil di halaman run (Summary) beserta perintah Termux `gh run download`. Berkas yang dibagikan untuk analisis cukup `gagal-<ID>.txt`.
+## Artifact GitHub Actions
+GitHub Release dan GitHub Artifact itu terpisah. Release (halaman rilis dari tag) berisi APK bertanda tangan, `SHA256SUMS.txt`, dan file mapping. Artifact (hasil run Actions) hanya 2 jalur:
+1. `apk-JadxDroid-<sha7>-run<N>` — APK hasil build CI (7 hari). Dry-run Release memakai `apk-JadxDroid-<versi>-dryrun-run<N>`.
+2. `laporan-JadxDroid_<versi-atau-batch>-<sha7>-run<N>[-a<percobaan>]` — laporan untuk Claude (7 hari). `laporan-<ID>.txt` selalu ada; bila ada langkah gagal, ikut `log/` (log tiap langkah) dan `laporan-tool/` (detekt, lint). Ringkasan yang sama tampil di halaman run (Summary); untuk run Release yang gagal juga ada perintah Termux `gh run download`. Berkas yang dibagikan untuk analisis cukup `laporan-<ID>.txt`.
+Rilis yang sukses tidak membuat artifact.
 
 Status saat ini dan langkah berikutnya: lihat `PROJECT_STATE.md`.
 

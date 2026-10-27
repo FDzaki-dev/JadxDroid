@@ -79,51 +79,15 @@ jobs:
           RELEASE_OUTCOME: ${{ steps.release.outcome }}
         run: bash scripts/ci/collect-report.sh
 
+      # Artifact path 1 of 2 = APK (step below). Artifact path 2 of 2 = this report for Claude;
+      # raw logs and tool reports are bundled in only when a step failed (see collect-report.sh).
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.report.outputs.report_name || format('laporan-JadxDroid-{0}-run{1}', env.SHORT_SHA, github.run_number) }}
-          path: laporan-*.txt
+          path: laporan-bundle/
           retention-days: 7
-
-      - name: Collect failure bundle
-        id: failure
-        if: always() && (steps.debug.outcome == 'failure' || steps.release.outcome == 'failure')
-        env:
-          FAILURE_KIND: ci
-          STEP_RESULTS: |
-            lint=${{ steps.lint.outcome }}
-            detekt=${{ steps.detekt.outcome }}
-            debug=${{ steps.debug.outcome }}
-            release=${{ steps.release.outcome }}
-        run: bash scripts/ci/collect-failure.sh
-
-      - name: Upload failure bundle
-        id: failure_upload
-        if: always() && steps.failure.outcome == 'success'
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ steps.failure.outputs.name }}
-          path: failure-bundle/
-          retention-days: 14
-          if-no-files-found: warn
-
-      - name: Failure summary (how to fetch)
-        if: always() && steps.failure_upload.outcome == 'success'
-        env:
-          ARTIFACT_URL: ${{ steps.failure_upload.outputs.artifact-url }}
-          ARTIFACT_NAME: ${{ steps.failure.outputs.name }}
-        run: |
-          {
-            echo
-            echo "Artefak kegagalan: [$ARTIFACT_NAME]($ARTIFACT_URL) (disimpan 14 hari). Berkas yang dibagikan: \`$ARTIFACT_NAME.txt\`."
-            echo
-            echo "Termux:"
-            echo '```bash'
-            echo "gh run download $GITHUB_RUN_ID -R $GITHUB_REPOSITORY -n $ARTIFACT_NAME -D ~/storage/downloads/$ARTIFACT_NAME"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APK
         if: always()

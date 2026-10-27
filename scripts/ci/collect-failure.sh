@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Builds the failure bundle for a failed workflow run:
-#   failure-bundle/gagal-<ID>.txt   identity + failed step + raw causes (the one file to share)
+# Builds the report bundle (same laporan-* artifact family as the CI report) for a failed Release run:
+#   failure-bundle/laporan-<ID>.txt identity + failed step + raw causes (the one file to share)
 #   failure-bundle/log/             raw step logs written by the workflow (ci-logs/)
 #   failure-bundle/laporan-tool/    detekt / lint reports when present
 # and appends a readable summary to the run page ($GITHUB_STEP_SUMMARY).
@@ -26,7 +26,7 @@ else
 fi
 ID="${PROJECT}_${REF}-${SHORT_SHA}-run${RUN_NUMBER}"
 if [ "$ATTEMPT" -gt 1 ] 2>/dev/null; then ID="${ID}-a${ATTEMPT}"; fi
-NAME="gagal-${ID}"
+NAME="laporan-${ID}"
 REPORT="${BUNDLE}/${NAME}.txt"
 WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
 

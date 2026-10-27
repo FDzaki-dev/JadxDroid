@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Builds laporan-untuk-claude.txt from lint + detekt output and build logs.
+# Builds the report for Claude (laporan-<ID>.txt) from lint + detekt output and build logs, and stages it
+# in laporan-bundle/ (the one report artifact). On any failed step, raw logs (log/) and tool reports
+# (laporan-tool/) are added to the bundle and the report is echoed to the run page.
 # Rule: tool unavailable / failed / report absent  =>  NOT VERIFIED (never "pass").
 set -u
 
@@ -91,6 +93,25 @@ section_build() {
   echo
   section_detekt
 } > "$OUT"
+
+BUNDLE="laporan-bundle"
+rm -rf "$BUNDLE"
+mkdir -p "$BUNDLE"
+cp "$OUT" "$BUNDLE/"
+FAILED=0
+for outcome in "${DEBUG_OUTCOME:-}" "${RELEASE_OUTCOME:-}" "${LINT_OUTCOME:-}" "${DETEKT_OUTCOME:-}"; do
+  if [ "$outcome" = "failure" ]; then FAILED=1; fi
+done
+if [ "$FAILED" -eq 1 ]; then
+  mkdir -p "$BUNDLE/log" "$BUNDLE/laporan-tool"
+  cp ci-logs/* "$BUNDLE/log/" 2>/dev/null
+  for f in "$DETEKT_REPORT" "$LINT_REPORT"; do
+    if [ -s "$f" ]; then cp "$f" "$BUNDLE/laporan-tool/"; fi
+  done
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    { echo "## Laporan: ${REPORT_ID}"; echo; echo '```'; head -n 60 "$OUT"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+  fi
+fi
 
 {
   echo "report_name=${REPORT_NAME}"
