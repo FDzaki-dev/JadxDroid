@@ -48,7 +48,7 @@ object DexSplitter {
         }
     }
 
-    /** Writes a small archive with manifest, resources.arsc and res/** so resources can be decoded without any dex. */
+    /** Writes a small archive with the manifest, resources.arsc and the res folder, so resources decode without any dex. */
     fun extractResourcesArchive(input: File, target: File): Int {
         var copied = 0
         ZipFile(input).use { zip ->
