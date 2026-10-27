@@ -4,10 +4,12 @@ import jadx.android.AndroidPluginLoader
 import jadx.api.JadxArgs
 import jadx.api.JadxDecompiler
 import jadx.api.impl.NoOpCodeCache
+import jadx.api.impl.SimpleCodeWriter
 import jadx.api.security.JadxSecurityFlag.SANITIZE_STRINGS
 import jadx.api.security.JadxSecurityFlag.SECURE_ZIP_READER
 import jadx.api.security.JadxSecurityFlag.VERIFY_APP_PACKAGE
 import jadx.api.security.impl.JadxSecurity
+import jadx.api.usage.impl.EmptyUsageInfoCache
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -161,6 +163,11 @@ class JadxRunner {
         args.setSkipResources(skipResources)
         // Result is streamed to disk; keeping every decompiled class in memory would exhaust the Android heap.
         args.setCodeCache(NoOpCodeCache.INSTANCE)
+        // Same choices as the upstream CLI: nothing here navigates code, so skip the GUI metadata writer
+        // (per-class annotation and line maps) and do not keep the whole usage graph alive after it is applied.
+        // Both cut CPU time and heap churn, which is what makes the UI stutter under a large decompile.
+        args.setCodeWriterProvider { SimpleCodeWriter(it) }
+        args.setUsageInfoCache(EmptyUsageInfoCache())
         // Explicit plugin list: no dependency on ServiceLoader / META-INF/services in the APK.
         args.setPluginLoader(AndroidPluginLoader())
         // SECURE_XML_PARSER is left out on purpose: it needs Xerces-only DocumentBuilderFactory features,

@@ -11,10 +11,13 @@ import kotlinx.coroutines.withContext
 import okio.buffer
 import okio.sink
 import okio.source
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -26,6 +29,10 @@ object Storage {
     private const val OUTPUT_DIR = "jadx-out"
     private const val EXPORT_RELATIVE_PATH = "Documents/JadxDroid"
     private const val PROGRESS_STEP = 25
+
+    // Okio moves data in 8 KiB segments; this layer below it coalesces them into large reads and writes, which
+    // matters most on the FUSE-backed shared storage (picked input, MediaStore output) where each call is costly.
+    private const val STREAM_BUFFER_BYTES = 256 * 1024
     private val unsafeChars = Regex("[^A-Za-z0-9._-]")
 
     fun displayName(context: Context, uri: Uri): String {
@@ -45,8 +52,10 @@ object Storage {
         check(dir.mkdirs()) { "Gagal membuat direktori input: $dir" }
         val target = File(dir, sanitize(fileName))
         val input = context.contentResolver.openInputStream(uri) ?: error("Tidak bisa membuka input: $uri")
-        input.source().buffer().use { source ->
-            target.sink().buffer().use { sink -> sink.writeAll(source) }
+        BufferedInputStream(input, STREAM_BUFFER_BYTES).source().buffer().use { source ->
+            BufferedOutputStream(target.outputStream(), STREAM_BUFFER_BYTES).sink().buffer().use { sink ->
+                sink.writeAll(source)
+            }
         }
         return target
     }
@@ -84,8 +93,11 @@ object Storage {
         val uri = resolver.insert(collection, values) ?: error("MediaStore menolak insert: $fileName")
         try {
             val stream = resolver.openOutputStream(uri) ?: error("Tidak bisa menulis: $uri")
-            stream.sink().buffer().use { buffered ->
+            BufferedOutputStream(stream, STREAM_BUFFER_BYTES).sink().buffer().use { buffered ->
                 ZipOutputStream(buffered.outputStream()).use { zip ->
+                    // Decompiled sources are plain text and compress well even at the fastest level; the default
+                    // level costs several times more CPU for a few percent smaller archive.
+                    zip.setLevel(Deflater.BEST_SPEED)
                     val zipSink = zip.sink()
                     files.forEachIndexed { index, file ->
                         ensureActive()

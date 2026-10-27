@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 1.5.6-android.9 — 2026-10-28
+- Dekompilasi tidak lagi membuat UI patah-patah: thread worker JADX kini berprioritas di bawah UI dan render (nice 9). Nilai ini sengaja tetap di atas ambang grup background (10), jadi worker tidak dibatasi ke core kecil dan kecepatan tidak turun saat UI diam.
+- Lebih cepat dan hemat memori: JADX memakai code writer ringan tanpa metadata GUI, dan graf usage dibuang setelah diterapkan ke node (pengaturan yang sama dengan JADX CLI). Lebih sedikit objek dan GC saat APK besar.
+- Pembaruan progres ke WorkManager dibatasi: hanya saat persen berubah dan maksimal 1 per detik (sebelumnya tiap 500 ms saat dekompilasi dan tiap 25 berkas saat ekspor, masing-masing satu tulis database + query ulang + recompose).
+- Ekspor ZIP memakai kompresi tercepat (sumber teks, arsip sedikit lebih besar) dan buffer 256 KiB di atas Okio; salin input ke cache juga berbuffer besar.
+- Status validasi: NOT VERIFIED (kompilasi, detekt, lint, dan efek di perangkat menunggu CI dan uji pengguna).
+
 ## 1.5.6-android.8 — 2026-10-27
 - Perbaikan gerbang rilis: `v1.5.6-android.7` diblokir detekt (MatchingDeclarationName pada kelas `UpdateActions`); kelas dipindah ke file sendiri tanpa perubahan perilaku.
 - Tab Update di aplikasi: saat dibuka, otomatis memeriksa rilis terbaru di GitHub dan menampilkan snapshot rilis (versi terpasang, versi terbaru, tanggal, ukuran, catatan rilis) selama memuat dan mengunduh.

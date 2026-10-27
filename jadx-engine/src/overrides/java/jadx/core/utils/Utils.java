@@ -625,11 +625,28 @@ public class Utils {
 
 		@Override
 		public Thread newThread(@NotNull Runnable r) {
-			Thread thread = new Thread(r, "jadx-" + name
+			Thread thread = new Thread(() -> {
+				lowerPriority();
+				r.run();
+			}, "jadx-" + name
 					+ '-' + POOL.incrementAndGet()
 					+ '-' + number.incrementAndGet());
 			thread.setUncaughtExceptionHandler(EXC_HANDLER);
 			return thread;
+		}
+
+		/**
+		 * Android override: decompile workers run at nice 9 (BACKGROUND + MORE_FAVORABLE). That is below the UI and
+		 * render threads, so jadx can saturate the other cores without making the app laggy, but still above the
+		 * threshold (10) where the system moves a thread into the background cgroup and restricts it to little cores.
+		 */
+		private static void lowerPriority() {
+			try {
+				android.os.Process.setThreadPriority(
+						android.os.Process.THREAD_PRIORITY_BACKGROUND + android.os.Process.THREAD_PRIORITY_MORE_FAVORABLE);
+			} catch (RuntimeException ignored) {
+				// priority is only a scheduling hint, a decompile must never fail because of it
+			}
 		}
 
 		private static class SimpleUncaughtExceptionHandler implements Thread.UncaughtExceptionHandler {

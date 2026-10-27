@@ -16,6 +16,12 @@ Dekompiler APK / DEX / JAR berbasis [JADX](https://github.com/skylot/jadx) 1.5.6
 ## APK besar
 Heap Java aplikasi dibatasi sistem (±512 MB di banyak perangkat). DEX dipetakan ke memori native; untuk APK yang DEX-nya sangat besar atau setelah `OutOfMemoryError`, aplikasi otomatis memakai mode per-DEX (satu `classesN.dex` per pass). Hasilnya tetap berupa satu ZIP, dengan catatan mode di `JADXDROID-NOTES.txt`.
 
+## Performa saat dekompilasi
+- Thread worker JADX berjalan di prioritas nice 9: UI tetap lancar, tetapi worker masih boleh memakai semua core.
+- JADX memakai `SimpleCodeWriter` dan `EmptyUsageInfoCache` (sama seperti JADX CLI): tanpa metadata GUI dan tanpa graf usage yang menetap di heap.
+- Progres ke WorkManager maksimal 1 tulis per detik (hanya saat persen berubah).
+- Ekspor ZIP memakai kompresi tercepat dan buffer 256 KiB; untuk menukar ukuran arsip dengan kecepatan, ubah level di `Storage.exportZip`.
+
 ## Rilis
 Versi memakai pola `X.Y.Z-android.N` (X.Y.Z = versi JADX upstream, N = urutan rilis Android).
 1. Tambahkan bagian `## X.Y.Z-android.N — tanggal` di paling atas `CHANGELOG.md` dan samakan default `releaseVersion` di `app/build.gradle.kts`.

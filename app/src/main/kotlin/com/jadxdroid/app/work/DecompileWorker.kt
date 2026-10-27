@@ -3,6 +3,7 @@ package com.jadxdroid.app.work
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.net.toUri
 import androidx.work.CoroutineWorker
@@ -68,7 +69,21 @@ class DecompileWorker(appContext: Context, params: WorkerParameters) : Coroutine
         }
     }
 
+    // Every setProgress is a database write plus a WorkInfo re-query and a recomposition. Under a CPU-bound
+    // decompile that churn is visible as UI stutter, so a report goes out only when the phase changes, or the
+    // whole percent changed and at least MIN_REPORT_INTERVAL_MS has passed since the previous write.
+    private var lastPhase: Phase? = null
+    private var lastPercent = NO_PERCENT
+    private var lastReportAt = 0L
+
     private suspend fun report(phase: Phase, name: String, done: Int = 0, total: Int = 0) {
+        val percent = if (total > 0) (done.toLong() * PERCENT_SCALE / total).toInt() else NO_PERCENT
+        val now = SystemClock.elapsedRealtime()
+        val samePhase = phase == lastPhase
+        if (samePhase && (percent == lastPercent || now - lastReportAt < MIN_REPORT_INTERVAL_MS)) return
+        lastPhase = phase
+        lastPercent = percent
+        lastReportAt = now
         setProgress(workDataOf(KEY_PHASE to phase.name, KEY_NAME to name, KEY_DONE to done, KEY_TOTAL to total))
     }
 
@@ -118,5 +133,8 @@ class DecompileWorker(appContext: Context, params: WorkerParameters) : Coroutine
         private const val WAKE_LOCK_TAG = "JadxDroid:decompile"
         private const val WAKE_LOCK_TIMEOUT_MS = 2L * 60 * 60 * 1000
         private const val MAX_FAILURE_CHARS = 3000
+        private const val PERCENT_SCALE = 100
+        private const val NO_PERCENT = -1
+        private const val MIN_REPORT_INTERVAL_MS = 1_000L
     }
 }

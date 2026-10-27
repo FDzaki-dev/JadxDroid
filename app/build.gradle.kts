@@ -9,7 +9,7 @@ plugins {
 }
 
 // Release version: "<upstream jadx version>-android.<n>", injected by the release workflow from the git tag.
-val releaseVersion: String = (findProperty("releaseVersion") as String?) ?: "1.5.6-android.8"
+val releaseVersion: String = (findProperty("releaseVersion") as String?) ?: "1.5.6-android.9"
 val versionMatch = requireNotNull(Regex("""(\d+)\.(\d+)\.(\d+)-android\.(\d+)""").matchEntire(releaseVersion)) {
 	"releaseVersion harus berformat X.Y.Z-android.N, dapat: $releaseVersion"
 }
