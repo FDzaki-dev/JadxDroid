@@ -23,6 +23,9 @@ Versi memakai pola `X.Y.Z-android.N` (X.Y.Z = versi JADX upstream, N = urutan ri
 3. Workflow *Release* menunggu Android CI hijau, menjalankan detekt + lint (NewApi), membangun APK bertanda tangan, memverifikasi tanda tangan dan versi, lalu menerbitkan APK, `SHA256SUMS.txt`, dan file mapping di GitHub Releases.
 Bila gagal, jangan pakai ulang tag: perbaiki dan naikkan N. Uji coba tanpa publikasi: Actions → Release → Run workflow. Prasyarat: 4 secret dari Box B (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`).
 
+## Tab Update
+Tab Update memeriksa rilis terbaru repo ini lewat GitHub Releases saat dibuka. Selama memuat dan mengunduh, kartu snapshot rilis menampilkan versi terpasang, versi terbaru, tanggal, ukuran, dan catatan rilis. APK diunduh lewat stream Okio berbuffer di WorkManager, SHA-256 dihitung saat menulis lalu dicocokkan dengan `SHA256SUMS.txt`, dan dipasang lewat PackageInstaller dengan konfirmasi sistem. Hanya APK rilis bertanda tangan sama yang bisa menimpa; build debug dari artifact CI akan ditolak sistem dengan pesan mentah. Kode ada di `update/` (data) dan `ui/UpdateScreen.kt` (tampilan).
+
 ## Artifact GitHub Actions
 GitHub Release dan GitHub Artifact itu terpisah. Release (halaman rilis dari tag) berisi APK bertanda tangan, `SHA256SUMS.txt`, dan file mapping. Artifact (hasil run Actions) hanya 2 jalur:
 1. `apk-JadxDroid-<sha7>-run<N>` — APK debug + release (7 hari), dibuat workflow *Android APK* (`android-apk.yml`) tanpa lint, detekt, atau laporan, jadi tidak menunggu keduanya. Dry-run Release memakai `apk-JadxDroid-<versi>-dryrun-run<N>`.

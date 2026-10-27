@@ -10,14 +10,18 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jadxdroid.app.ui.JadxDroidTheme
 import com.jadxdroid.app.ui.MainScreen
+import com.jadxdroid.app.ui.UpdateActions
+import com.jadxdroid.app.update.UpdateViewModel
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+    private val updateViewModel: UpdateViewModel by viewModels()
 
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -31,7 +35,23 @@ class MainActivity : ComponentActivity() {
         setContent {
             JadxDroidTheme {
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
-                MainScreen(state = state, onPick = viewModel::start, onCancel = viewModel::cancel)
+                val updateState by updateViewModel.uiState.collectAsStateWithLifecycle()
+                val updateActions = remember {
+                    UpdateActions(
+                        onAutoCheck = updateViewModel::checkIfNeeded,
+                        onCheck = updateViewModel::checkForUpdate,
+                        onDownload = updateViewModel::download,
+                        onCancel = updateViewModel::cancelDownload,
+                        onInstall = updateViewModel::install,
+                    )
+                }
+                MainScreen(
+                    decompile = state,
+                    update = updateState,
+                    onPick = viewModel::start,
+                    onCancel = viewModel::cancel,
+                    updateActions = updateActions,
+                )
             }
         }
     }

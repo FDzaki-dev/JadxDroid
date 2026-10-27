@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.5.6-android.7 — 2026-10-27
+- Tab Update di aplikasi: saat dibuka, otomatis memeriksa rilis terbaru di GitHub dan menampilkan snapshot rilis (versi terpasang, versi terbaru, tanggal, ukuran, catatan rilis) selama memuat dan mengunduh.
+- Unduhan APK memakai stream Okio berbuffer di WorkManager (tahan rotasi, bisa dibatalkan); SHA-256 dihitung saat menulis dan dicocokkan dengan SHA256SUMS.txt rilis sebelum dipasang.
+- Pemasangan lewat PackageInstaller (APK ditulis ke sesi dengan Okio) dengan konfirmasi sistem; pembaruan hanya bisa menimpa APK yang bertanda tangan sama (rilis).
+- Izin baru: INTERNET dan REQUEST_INSTALL_PACKAGES.
+
 ## 1.5.6-android.6 — 2026-10-27
 - Perbaikan gerbang rilis: `v1.5.6-android.5` diblokir detekt pada `DexSplitter.kt` (kedalaman blok `extractResourcesArchive` dan baris KDoc melebihi 120 kolom). Fungsi dipecah dan komentar diringkas; perilaku aplikasi tidak berubah.
 - Memperbaiki `OutOfMemoryError` saat membuka APK besar (dilaporkan pada APK ±100 MB dengan banyak DEX): data DEX kini dipetakan ke memori native (di luar heap Java 512 MB) dan hanya entri DEX yang dibaca, bukan seluruh isi APK.
