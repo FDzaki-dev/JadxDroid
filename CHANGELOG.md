@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 1.5.6-android.11 — 2026-10-28
+- Aplikasi tidak lagi patah-patah saat dekompilasi: JADX kini berjalan di proses terpisah (`:jadx`), jadi GC dan beban CPU-nya tidak lagi berbagi proses dengan UI. Semua thread proses itu (termasuk thread GC runtime) berjalan di bawah prioritas UI. Proses itu hidup hanya selama satu dekompilasi dan berakhir saat selesai atau dibatalkan, sehingga heap kembali utuh. Bila proses itu tidak bisa dijalankan, dekompilasi otomatis berjalan di proses utama seperti sebelumnya.
+- Lebih cepat: thread JADX naik dari maksimal 2 menjadi maksimal 3 pada heap 512 MB (maksimal 4 pada heap lebih besar). Paralelisme bersifat adaptif: saat heap hampir penuh (di atas 85%) dan ada kelas lain yang sedang dibuat, kelas berikutnya menunggu sebentar, jadi tidak ada dua working set besar sekaligus; saat memori lapang semua thread berjalan penuh. Pelepasan kelas dependensi baru dimulai di 70% heap (sebelumnya 60%), jadi lebih jarang memproses ulang.
+- Log JADX ke logcat diturunkan ke ERROR (sebelumnya INFO): ribuan baris peringatan per APK besar memakan CPU dan alokasi.
+- Workflow Release tidak lagi menunggu Android CI (penyebab utama waktu terlama, ±4,5 menit) dan tidak lagi menjalankan Gradle tiga kali: detekt, lint, dan build rilis bertanda tangan kini satu run Gradle. Gerbang tetap berlaku: detekt gagal, kompilasi gagal, atau NewApi ditemukan = tidak ada rilis.
+- Status validasi: NOT VERIFIED (kompilasi Gradle, detekt, lint, dan uji perangkat menunggu CI dan uji pengguna).
+
 ## 1.5.6-android.10 — 2026-10-28
 - Memperbaiki kegagalan menjelang akhir dekompilasi APK besar (`OutOfMemoryError`, lalu semua pass per-DEX ikut gagal). Sebab 1: JADX memuat dan memproses semua dependensi tiap kelas, dan dependensi yang dimuat ulang tidak pernah dilepas; kelas dengan dependensi terbanyak dijadwalkan paling akhir, jadi heap penuh di ujung proses. Kini kelas yang sudah selesai dibuat dan hanya dimuat ulang sebagai dependensi dilepas lagi saat heap melewati 60% (kelas yang sedang dipakai kelas lain tidak disentuh; heap lapang = perilaku sama seperti sebelumnya).
 - Sebab 2: setelah `OutOfMemoryError`, thread worker JADX tidak berhenti dan tetap memegang kelas, sehingga mode per-DEX langsung kehabisan heap. Kini worker diinterupsi dan ditunggu sampai berhenti sebelum percobaan berikutnya.

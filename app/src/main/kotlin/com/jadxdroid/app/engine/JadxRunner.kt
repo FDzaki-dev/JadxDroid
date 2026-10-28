@@ -230,7 +230,8 @@ class JadxRunner {
 
     private fun threadCount(): Int {
         val smallHeap = Runtime.getRuntime().maxMemory() <= SMALL_HEAP_BYTES
-        return (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, if (smallHeap) 2 else MAX_THREADS)
+        val limit = if (smallHeap) SMALL_HEAP_THREADS else MAX_THREADS
+        return (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, limit)
     }
 
     private fun Throwable.isOutOfMemory(): Boolean =
@@ -238,6 +239,7 @@ class JadxRunner {
 
     private companion object {
         const val MAX_THREADS = 4
+        const val SMALL_HEAP_THREADS = 3
         const val SMALL_HEAP_BYTES = 640L * 1024 * 1024
         const val SPLIT_HEAP_RATIO = 8
         const val PASS_UNITS = 1000

@@ -23,7 +23,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
-      actions: read
       contents: write
       id-token: write
       attestations: write
@@ -47,35 +46,6 @@ jobs:
             ci_fail version "Versi tidak valid: '$VERSION' (format X.Y.Z-android.N)"
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-
-      - name: Wait for green Android CI on this commit
-        id: ci_wait
-        if: env.PUBLISH == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          source scripts/ci/lib.sh
-          MISSING=0
-          for _ in $(seq 1 90); do
-            RESULT="$(gh run list --workflow android-ci.yml --commit "$GITHUB_SHA" --limit 1 --json status,conclusion --jq '.[0] // empty | "\(.status) \(.conclusion)"')"
-            if [ -z "$RESULT" ]; then
-              MISSING=$((MISSING + 1))
-              if [ "$MISSING" -gt 10 ]; then
-                ci_fail ci_wait "Tidak ada run Android CI untuk commit $GITHUB_SHA."
-              fi
-            else
-              STATUS="${RESULT%% *}"
-              CONCLUSION="${RESULT#* }"
-              echo "Android CI: status=$STATUS conclusion=$CONCLUSION"
-              if [ "$STATUS" = "completed" ]; then
-                [ "$CONCLUSION" = "success" ] && exit 0
-                ci_fail ci_wait "Android CI untuk commit $GITHUB_SHA tidak sukses ($CONCLUSION)."
-              fi
-            fi
-            sleep 30
-          done
-          ci_fail ci_wait "Android CI belum selesai setelah 45 menit."
 
       - name: Extract release notes from CHANGELOG.md
         id: notes
@@ -103,17 +73,6 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
-      - name: Quality gate (detekt, NewApi)
-        id: gate
-        run: |
-          source scripts/ci/lib.sh
-          chmod +x gradlew
-          ./gradlew detekt 2>&1 | tee ci-logs/gate-detekt.log
-          ./gradlew lintDebug 2>&1 | tee ci-logs/gate-lint.log
-          if grep -E ': Error: .*\[NewApi\]' app/build/reports/lint/lint-results.txt; then
-            ci_fail gate "Ada panggilan API di atas minSdk 31 (NewApi). Rilis dibatalkan."
-          fi
-
       - name: Decode keystore
         id: keystore
         env:
@@ -131,7 +90,9 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
           echo "KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
 
-      - name: Build signed release APK
+      # One Gradle run (one configuration phase, detekt overlapping the engine compile) instead of three; any failed
+      # task, detekt included, still fails this step, so a release never publishes past the quality gate.
+      - name: Quality gate (detekt, lint) + signed release build
         id: build
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -139,7 +100,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           source scripts/ci/lib.sh
-          ./gradlew assembleRelease -PreleaseVersion="$VERSION" 2>&1 | tee ci-logs/build-release.log
+          chmod +x gradlew
+          ./gradlew detekt lintDebug assembleRelease --continue -PreleaseVersion="$VERSION" 2>&1 | tee ci-logs/build-release.log
+
+      - name: Quality gate (NewApi)
+        id: gate
+        run: |
+          source scripts/ci/lib.sh
+          if grep -E ': Error: .*\[NewApi\]' app/build/reports/lint/lint-results.txt; then
+            ci_fail gate "Ada panggilan API di atas minSdk 31 (NewApi). Rilis dibatalkan."
+          fi
 
       - name: Verify signature and version, stage assets
         id: verify
@@ -204,11 +174,10 @@ jobs:
           FAILURE_KIND: release
           STEP_RESULTS: |
             version=${{ steps.version.outcome }}
-            ci_wait=${{ steps.ci_wait.outcome }}
             notes=${{ steps.notes.outcome }}
-            gate=${{ steps.gate.outcome }}
             keystore=${{ steps.keystore.outcome }}
             build=${{ steps.build.outcome }}
+            gate=${{ steps.gate.outcome }}
             verify=${{ steps.verify.outcome }}
             publish=${{ steps.publish.outcome }}
         run: bash scripts/ci/collect-failure.sh

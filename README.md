@@ -20,6 +20,8 @@ Heap Java aplikasi dibatasi sistem (±512 MB di banyak perangkat). DEX dipetakan
 - Thread worker JADX berjalan di prioritas nice 9: UI tetap lancar, tetapi worker masih boleh memakai semua core.
 - JADX memakai `SimpleCodeWriter` dan `EmptyUsageInfoCache` (sama seperti JADX CLI): tanpa metadata GUI dan tanpa graf usage yang menetap di heap.
 - Progres ke WorkManager maksimal 1 tulis per detik (hanya saat persen berubah).
+- Dekompilasi berjalan di proses `:jadx` (`JadxService`, diikat oleh `DecompileWorker` lewat `RemoteDecompiler`): GC dan CPU-nya terpisah dari UI, prioritas semua thread-nya di bawah UI, dan prosesnya berakhir saat selesai atau dibatalkan. Bila proses tidak bisa dijalankan, `DecompileWorker` memakai jalur lama di proses utama.
+- Jumlah thread JADX: maks 3 (heap <= 640 MB) atau 4; `MemoryGuard` menahan kelas berikutnya sebentar saat heap > 85% dan ada generate lain yang berjalan.
 - Kontrol memori (`jadx.android.MemoryGuard`): saat heap melewati 60%, kelas yang sudah selesai dibuat dan dimuat ulang hanya sebagai dependensi dilepas lagi. Bila `OutOfMemoryError` tetap terjadi, worker dihentikan total, lalu diulang mode hemat memori (1 thread), lalu per-DEX.
 - Ekspor ZIP memakai kompresi tercepat dan buffer 256 KiB; untuk menukar ukuran arsip dengan kecepatan, ubah level di `Storage.exportZip`.
 

@@ -30,8 +30,11 @@ import jadx.core.dex.nodes.ProcessState;
  * already starts the next attempt.
  */
 public final class MemoryGuard {
-	private static final double PRESSURE_RATIO = 0.60;
+	private static final double PRESSURE_RATIO = 0.70;
 	private static final double ECONOMY_RATIO = 0.30;
+	private static final double GATE_RATIO = 0.85;
+	private static final long GATE_STEP_MS = 10L;
+	private static final long GATE_MAX_WAIT_MS = 3000L;
 	private static final long SWEEP_GAP_NANOS = 100_000_000L;
 	private static final String WORKER_PREFIX = "jadx-task-";
 	private static final int THREAD_SLACK = 32;
@@ -41,6 +44,7 @@ public final class MemoryGuard {
 	private static final Map<ClassNode, Integer> PINS = new ConcurrentHashMap<>();
 	private static final AtomicBoolean SWEEPING = new AtomicBoolean(false);
 	private static final AtomicInteger RELEASED = new AtomicInteger(0);
+	private static final AtomicInteger ACTIVE = new AtomicInteger(0);
 
 	private static volatile boolean enabled;
 	private static volatile boolean economy;
@@ -57,6 +61,7 @@ public final class MemoryGuard {
 		CANDIDATES.clear();
 		PINS.clear();
 		RELEASED.set(0);
+		ACTIVE.set(0);
 		lastSweepNanos = 0L;
 		economy = economyMode;
 		enabled = true;
@@ -83,6 +88,7 @@ public final class MemoryGuard {
 	 * Marks a class and its dependencies as in use by the calling generation until {@link Pins#release()}.
 	 */
 	public static Pins pin(ClassNode cls) {
+		awaitHeadroom();
 		Pins pins = new Pins();
 		pins.add(Collections.singletonList(cls));
 		pins.add(cls.getDependencies());
@@ -124,8 +130,13 @@ public final class MemoryGuard {
 	 */
 	public static final class Pins {
 		private final Map<ClassNode, Boolean> held = new IdentityHashMap<>();
+		private final boolean counted;
 
 		private Pins() {
+			this.counted = enabled;
+			if (counted) {
+				ACTIVE.incrementAndGet();
+			}
 		}
 
 		public void add(List<ClassNode> classes) {
@@ -148,14 +159,37 @@ public final class MemoryGuard {
 				}
 			}
 			held.clear();
+			if (counted) {
+				ACTIVE.updateAndGet(count -> count > 0 ? count - 1 : 0);
+			}
 		}
 	}
 
-	private static boolean underPressure() {
+	private static double usedRatio() {
 		Runtime runtime = Runtime.getRuntime();
-		long used = runtime.totalMemory() - runtime.freeMemory();
-		double ratio = economy ? ECONOMY_RATIO : PRESSURE_RATIO;
-		return used > (long) (runtime.maxMemory() * ratio);
+		return (double) (runtime.totalMemory() - runtime.freeMemory()) / runtime.maxMemory();
+	}
+
+	private static boolean underPressure() {
+		return usedRatio() > (economy ? ECONOMY_RATIO : PRESSURE_RATIO);
+	}
+
+	/**
+	 * Adaptive parallelism: while the heap is nearly full and another generation is running, a new generation waits
+	 * (bounded) instead of adding a second working set. A lone generation never waits, so the run cannot stall; when
+	 * memory is fine every worker thread runs at full speed.
+	 */
+	private static void awaitHeadroom() {
+		long waited = 0L;
+		while (enabled && waited < GATE_MAX_WAIT_MS && ACTIVE.get() > 0 && usedRatio() > GATE_RATIO) {
+			try {
+				Thread.sleep(GATE_STEP_MS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+			waited += GATE_STEP_MS;
+		}
 	}
 
 	private static void sweep() {

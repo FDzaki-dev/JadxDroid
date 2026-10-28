@@ -15,11 +15,14 @@ import com.jadxdroid.app.Phase
 import com.jadxdroid.app.R
 import com.jadxdroid.app.data.Storage
 import com.jadxdroid.app.engine.JadxRunner
+import com.jadxdroid.app.engine.RemoteDecompiler
+import com.jadxdroid.app.engine.RemoteFailure
 import com.jadxdroid.app.log.CrashLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class DecompileWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
 
@@ -37,9 +40,7 @@ class DecompileWorker(appContext: Context, params: WorkerParameters) : Coroutine
             val outDir = withContext(Dispatchers.IO) { Storage.prepareOutputDir(applicationContext) }
 
             report(Phase.DECOMPILING, displayName)
-            val summary = JadxRunner().decompile(input, outDir, JadxRunner.Options(skipResources)) { done, total ->
-                report(Phase.DECOMPILING, displayName, done, total)
-            }
+            val summary = decompile(input, outDir, skipResources, displayName)
 
             report(Phase.EXPORTING, displayName)
             val path = Storage.exportZip(applicationContext, outDir, input.nameWithoutExtension) { done, total ->
@@ -60,7 +61,7 @@ class DecompileWorker(appContext: Context, params: WorkerParameters) : Coroutine
             Result.failure(
                 workDataOf(
                     KEY_NAME to displayName,
-                    KEY_FAILURE to CrashLogger.rawTrace(throwable).take(MAX_FAILURE_CHARS),
+                    KEY_FAILURE to failureText(throwable).take(MAX_FAILURE_CHARS),
                 ),
             )
         } finally {
@@ -68,6 +69,24 @@ class DecompileWorker(appContext: Context, params: WorkerParameters) : Coroutine
             if (wakeLock.isHeld) wakeLock.release()
         }
     }
+
+    // The decompiler runs in its own process so its GC and CPU load cannot stall the UI process; only if that
+    // process cannot be started does the work stay in this one (same result, but the UI may stutter).
+    private suspend fun decompile(
+        input: File,
+        outDir: File,
+        skipResources: Boolean,
+        displayName: String,
+    ): JadxRunner.Summary {
+        val progress: suspend (Int, Int) -> Unit = { done, total ->
+            report(Phase.DECOMPILING, displayName, done, total)
+        }
+        return RemoteDecompiler(applicationContext).decompile(input, outDir, skipResources, progress)
+            ?: JadxRunner().decompile(input, outDir, JadxRunner.Options(skipResources), progress)
+    }
+
+    private fun failureText(throwable: Throwable): String =
+        if (throwable is RemoteFailure) throwable.trace else CrashLogger.rawTrace(throwable)
 
     // Every setProgress is a database write plus a WorkInfo re-query and a recomposition. Under a CPU-bound
     // decompile that churn is visible as UI stutter, so a report goes out only when the phase changes, or the
