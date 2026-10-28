@@ -30,9 +30,13 @@ import jadx.core.dex.nodes.ProcessState;
  * already starts the next attempt.
  */
 public final class MemoryGuard {
-	private static final double PRESSURE_RATIO = 0.70;
-	private static final double ECONOMY_RATIO = 0.30;
-	private static final double GATE_RATIO = 0.85;
+	private static final double PROBE_RATIO = 0.80;
+	private static final double ECONOMY_PROBE_RATIO = 0.50;
+	private static final double LIVE_LIMIT = 0.55;
+	private static final double ECONOMY_LIVE_LIMIT = 0.40;
+	private static final long PROBE_GAP_NANOS = 3_000_000_000L;
+	private static final double GATE_RATIO = 0.90;
+	private static final int DEFAULT_WORKER_PRIORITY = 9;
 	private static final long GATE_STEP_MS = 10L;
 	private static final long GATE_MAX_WAIT_MS = 3000L;
 	private static final long SWEEP_GAP_NANOS = 100_000_000L;
@@ -45,10 +49,14 @@ public final class MemoryGuard {
 	private static final AtomicBoolean SWEEPING = new AtomicBoolean(false);
 	private static final AtomicInteger RELEASED = new AtomicInteger(0);
 	private static final AtomicInteger ACTIVE = new AtomicInteger(0);
+	private static final AtomicBoolean PROBING = new AtomicBoolean(false);
 
 	private static volatile boolean enabled;
 	private static volatile boolean economy;
+	private static volatile boolean livePressure;
+	private static volatile long lastProbeNanos;
 	private static volatile long lastSweepNanos;
+	private static volatile int workerPriority = DEFAULT_WORKER_PRIORITY;
 
 	private MemoryGuard() {
 	}
@@ -62,6 +70,8 @@ public final class MemoryGuard {
 		PINS.clear();
 		RELEASED.set(0);
 		ACTIVE.set(0);
+		livePressure = false;
+		lastProbeNanos = 0L;
 		lastSweepNanos = 0L;
 		economy = economyMode;
 		enabled = true;
@@ -75,6 +85,18 @@ public final class MemoryGuard {
 		GENERATED.clear();
 		CANDIDATES.clear();
 		PINS.clear();
+	}
+
+	/**
+	 * Android thread priority for JADX worker threads. The default keeps them below the UI when decompiling inside
+	 * the app process; the decompiler process, which has no UI, raises it.
+	 */
+	public static void setWorkerPriority(int priority) {
+		workerPriority = priority;
+	}
+
+	public static int workerPriority() {
+		return workerPriority;
 	}
 
 	/**
@@ -170,8 +192,25 @@ public final class MemoryGuard {
 		return (double) (runtime.totalMemory() - runtime.freeMemory()) / runtime.maxMemory();
 	}
 
+	/**
+	 * True while the live heap, not just the allocated one, is near the limit. Allocated bytes include garbage that
+	 * ART collects by itself, so unloading classes on that signal only makes them be processed again for nothing.
+	 * Near the limit (or while pressured) a full collection is forced at most every few seconds and the heap is
+	 * measured right after it.
+	 */
 	private static boolean underPressure() {
-		return usedRatio() > (economy ? ECONOMY_RATIO : PRESSURE_RATIO);
+		double used = usedRatio();
+		boolean worthProbing = livePressure || used > (economy ? ECONOMY_PROBE_RATIO : PROBE_RATIO);
+		if (worthProbing && System.nanoTime() - lastProbeNanos >= PROBE_GAP_NANOS && PROBING.compareAndSet(false, true)) {
+			try {
+				System.gc();
+				livePressure = usedRatio() > (economy ? ECONOMY_LIVE_LIMIT : LIVE_LIMIT);
+			} finally {
+				lastProbeNanos = System.nanoTime();
+				PROBING.set(false);
+			}
+		}
+		return livePressure;
 	}
 
 	/**
@@ -181,7 +220,7 @@ public final class MemoryGuard {
 	 */
 	private static void awaitHeadroom() {
 		long waited = 0L;
-		while (enabled && waited < GATE_MAX_WAIT_MS && ACTIVE.get() > 0 && usedRatio() > GATE_RATIO) {
+		while (enabled && waited < GATE_MAX_WAIT_MS && ACTIVE.get() > 0 && livePressure && usedRatio() > GATE_RATIO) {
 			try {
 				Thread.sleep(GATE_STEP_MS);
 			} catch (InterruptedException e) {

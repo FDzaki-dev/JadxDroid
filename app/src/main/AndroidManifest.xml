@@ -8,6 +8,10 @@
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 	<uses-permission android:name="android.permission.WAKE_LOCK" />
+	<!-- Asked once per launch before a decompile so it keeps its full CPU share while the app is in the background. -->
+	<uses-permission
+		android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+		tools:ignore="BatteryLife" />
 
 	<application
 		android:name=".JadxDroidApp"
@@ -35,6 +39,10 @@
 			android:name=".engine.JadxService"
 			android:exported="false"
 			android:process=":jadx" />
+		<service
+			android:name=".engine.JadxFallbackService"
+			android:exported="false"
+			android:process=":jadx2" />
 
 		<!-- PackageInstaller posts install results here; only the system calls it through our PendingIntent. -->
 		<receiver

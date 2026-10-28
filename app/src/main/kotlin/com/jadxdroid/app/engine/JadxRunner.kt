@@ -33,7 +33,19 @@ private val WORKER_STOP_TIMEOUT = 30.seconds
 
 class JadxRunner {
 
-    data class Options(val skipResources: Boolean)
+    /**
+     * CHAIN runs the whole fallback sequence in this process (used when no separate process is available). The
+     * decompiler process runs exactly one step per process: WHOLE, or PER_DEX after an earlier process ran out of
+     * memory, so every step starts on a clean heap instead of on whatever the previous one left behind.
+     */
+    enum class Strategy { CHAIN, WHOLE, PER_DEX }
+
+    /** [earlier] are the failures of previous steps (raw), kept in the result notes and as suppressed causes. */
+    data class Options(
+        val skipResources: Boolean,
+        val strategy: Strategy = Strategy.CHAIN,
+        val earlier: List<Throwable> = emptyList(),
+    )
 
     data class Summary(val errors: Int, val warnings: Int)
 
@@ -51,11 +63,19 @@ class JadxRunner {
         val plan = DexSplitter.inspect(input)
         val splittable = plan.entries.size > 1
         val tooBigForHeap = plan.totalBytes > Runtime.getRuntime().maxMemory() / SPLIT_HEAP_RATIO
-        if (splittable && tooBigForHeap) {
-            val reason = "ukuran DEX total melebihi anggaran heap"
-            decompilePerDex(input, outDir, options, plan, reason, emptyList(), onProgress)
-        } else {
-            decompileWhole(input, outDir, options, plan, onProgress)
+        when {
+            options.strategy == Strategy.PER_DEX -> {
+                val reason = "proses sebelumnya kehabisan memori"
+                decompilePerDex(input, outDir, options, plan, reason, options.earlier, onProgress)
+            }
+            splittable && tooBigForHeap -> {
+                val reason = "ukuran DEX total melebihi anggaran heap"
+                decompilePerDex(input, outDir, options, plan, reason, emptyList(), onProgress)
+            }
+            options.strategy == Strategy.WHOLE -> {
+                runJadx(buildArgs(input, outDir, options.skipResources, threadCount()), false, onProgress)
+            }
+            else -> decompileWhole(input, outDir, options, plan, onProgress)
         }
     }
 
@@ -234,16 +254,12 @@ class JadxRunner {
         return (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, limit)
     }
 
-    private fun Throwable.isOutOfMemory(): Boolean =
-        generateSequence(this) { it.cause }.take(MAX_CAUSE_DEPTH).any { it is OutOfMemoryError }
-
     private companion object {
         const val MAX_THREADS = 4
         const val SMALL_HEAP_THREADS = 3
         const val SMALL_HEAP_BYTES = 640L * 1024 * 1024
         const val SPLIT_HEAP_RATIO = 8
         const val PASS_UNITS = 1000
-        const val MAX_CAUSE_DEPTH = 8
     }
 }
 
@@ -278,7 +294,12 @@ private suspend fun haltWorkers(tasks: ITaskExecutor) {
     }
 }
 
-private fun clearOutput(outDir: File) {
+private const val MAX_CAUSE_DEPTH = 8
+
+internal fun Throwable.isOutOfMemory(): Boolean =
+    generateSequence(this) { it.cause }.take(MAX_CAUSE_DEPTH).any { it is OutOfMemoryError }
+
+internal fun clearOutput(outDir: File) {
     outDir.listFiles()?.forEach { it.deleteRecursively() }
 }
 

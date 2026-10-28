@@ -10,6 +10,7 @@ import android.os.Messenger
 import android.os.Process
 import androidx.core.os.bundleOf
 import com.jadxdroid.app.log.CrashLogger
+import jadx.android.MemoryGuard
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,10 +23,12 @@ import java.io.File
 /**
  * Runs one decompile in its own process (":jadx", see the manifest). Heap, garbage collection and CPU load of the
  * decompiler then belong to that process, so they cannot stall the UI process the way they do in a shared one.
+ * That process has no UI to protect, so its worker threads run at foreground priority: a lower one only loses
+ * CPU time to every other app, which is what makes a decompile crawl once the user leaves for another app.
  * The process lives for a single run: when the client unbinds, it ends, which returns the whole heap and stops
  * any worker thread still running.
  */
-class JadxService : Service() {
+open class JadxService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
@@ -36,6 +39,11 @@ class JadxService : Service() {
             true
         },
     )
+
+    override fun onCreate() {
+        super.onCreate()
+        MemoryGuard.setWorkerPriority(Process.THREAD_PRIORITY_FOREGROUND)
+    }
 
     override fun onBind(intent: Intent?): IBinder = messenger.binder
 
@@ -51,9 +59,10 @@ class JadxService : Service() {
         val data = message.data
         val input = File(data.getString(KEY_INPUT).orEmpty())
         val outDir = File(data.getString(KEY_OUT_DIR).orEmpty())
-        val options = JadxRunner.Options(data.getBoolean(KEY_SKIP_RESOURCES))
+        val strategy = JadxRunner.Strategy.entries.getOrElse(data.getInt(KEY_STRATEGY)) { JadxRunner.Strategy.CHAIN }
+        val earlier = data.getStringArrayList(KEY_EARLIER).orEmpty().map { RemoteFailure(it) }
+        val options = JadxRunner.Options(data.getBoolean(KEY_SKIP_RESOURCES), strategy, earlier)
         job = scope.launch {
-            lowerThreadPriorities()
             val reply = decompileReply(client, input, outDir, options)
             runCatching { client.send(reply) }
         }
@@ -74,17 +83,8 @@ class JadxService : Service() {
     } catch (cancel: CancellationException) {
         throw cancel
     } catch (failure: Throwable) {
-        Message.obtain(null, MSG_FAILED).apply { data = bundleOf(KEY_TRACE to CrashLogger.rawTrace(failure)) }
-    }
-
-    /**
-     * Every thread of this process, including the runtime's GC threads, runs below the UI process: a collection
-     * that uses all cores at normal priority is what makes the foreground app stutter.
-     */
-    private fun lowerThreadPriorities() {
-        val priority = Process.THREAD_PRIORITY_BACKGROUND + Process.THREAD_PRIORITY_MORE_FAVORABLE
-        File(THREADS_DIR).list()?.forEach { name ->
-            name.toIntOrNull()?.let { tid -> runCatching { Process.setThreadPriority(tid, priority) } }
+        Message.obtain(null, MSG_FAILED).apply {
+            data = bundleOf(KEY_TRACE to CrashLogger.rawTrace(failure), KEY_OOM to failure.isOutOfMemory())
         }
     }
 
@@ -99,6 +99,11 @@ class JadxService : Service() {
         const val KEY_ERRORS = "errors"
         const val KEY_WARNINGS = "warnings"
         const val KEY_TRACE = "trace"
-        private const val THREADS_DIR = "/proc/self/task"
+        const val KEY_OOM = "oom"
+        const val KEY_STRATEGY = "strategy"
+        const val KEY_EARLIER = "earlier"
     }
 }
+
+/** Same service in a second process (":jadx2"): a retry after a failed run never reuses the first process. */
+class JadxFallbackService : JadxService()

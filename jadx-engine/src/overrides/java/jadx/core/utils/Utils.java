@@ -636,14 +636,13 @@ public class Utils {
 		}
 
 		/**
-		 * Android override: decompile workers run at nice 9 (BACKGROUND + MORE_FAVORABLE). That is below the UI and
-		 * render threads, so jadx can saturate the other cores without making the app laggy, but still above the
-		 * threshold (10) where the system moves a thread into the background cgroup and restricts it to little cores.
+		 * Android override: priority of decompile workers comes from MemoryGuard.workerPriority(). Inside the app
+		 * process it is nice 9 (below the UI and render threads, above the threshold of 10 where the system moves a
+		 * thread into the background cgroup); the decompiler process has no UI and raises it.
 		 */
 		private static void lowerPriority() {
 			try {
-				android.os.Process.setThreadPriority(
-						android.os.Process.THREAD_PRIORITY_BACKGROUND + android.os.Process.THREAD_PRIORITY_MORE_FAVORABLE);
+				android.os.Process.setThreadPriority(jadx.android.MemoryGuard.workerPriority());
 			} catch (RuntimeException ignored) {
 				// priority is only a scheduling hint, a decompile must never fail because of it
 			}

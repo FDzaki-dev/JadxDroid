@@ -1,6 +1,11 @@
 package com.jadxdroid.app.ui
 
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -30,9 +35,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.jadxdroid.app.Phase
 import com.jadxdroid.app.R
 import com.jadxdroid.app.UiState
@@ -77,8 +84,15 @@ private fun DecompileTab(
     onPick: (Uri, Boolean) -> Unit,
     onCancel: () -> Unit,
 ) {
+    val context = LocalContext.current
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onPick(uri, skipResources)
+    }
+    // A decompile runs for many minutes, usually with the app in the background: ask once per launch to be exempt
+    // from battery optimisation so the system does not throttle or stop it, then go on to the file picker.
+    var askedBattery by rememberSaveable { mutableStateOf(false) }
+    val batteryExemption = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        picker.launch(arrayOf("*/*"))
     }
     val busy = state.phase in busyPhases
 
@@ -100,7 +114,15 @@ private fun DecompileTab(
             Switch(checked = skipResources, onCheckedChange = onSkipChange, enabled = !busy)
         }
         Button(
-            onClick = { picker.launch(arrayOf("*/*")) },
+            onClick = {
+                if (askedBattery || context.isIgnoringBatteryOptimizations()) {
+                    picker.launch(arrayOf("*/*"))
+                } else {
+                    askedBattery = true
+                    runCatching { batteryExemption.launch(context.batteryExemptionIntent()) }
+                        .onFailure { picker.launch(arrayOf("*/*")) }
+                }
+            },
             enabled = !busy,
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -137,6 +159,13 @@ private fun StatusSection(state: UiState, busy: Boolean, onCancel: () -> Unit) {
         }
     }
 }
+
+private fun Context.isIgnoringBatteryOptimizations(): Boolean =
+    getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
+
+@SuppressLint("BatteryLife")
+private fun Context.batteryExemptionIntent(): Intent =
+    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, "package:$packageName".toUri())
 
 @StringRes
 private fun phaseLabel(phase: Phase): Int = when (phase) {

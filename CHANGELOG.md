@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 1.5.6-android.13 — 2026-10-28
+- Memperbaiki kegagalan beruntun setelah heap habis (log: percobaan pertama `OutOfMemoryError`, percobaan kedua gagal memuat APK 51 MB dengan 4,4 MB heap bebas, lalu semua pass per-DEX gagal). Heap yang sudah penuh pada percobaan pertama tidak pernah pulih di proses yang sama, jadi tiap percobaan berikutnya mati seketika. Kini tiap langkah berjalan di proses dekompiler yang baru (`:jadx`, lalu `:jadx2`): bila langkah pertama (mode utuh) kehabisan memori atau prosesnya dimatikan sistem, langkah berikutnya (per-DEX, mulai hemat memori) berjalan di proses lain dengan heap bersih. Kegagalan langkah sebelumnya dikirim mentah ke langkah berikutnya dan dicatat di `JADXDROID-NOTES.txt` serta sebagai penyebab tersuppress di log.
+- Mode utuh hemat memori (1 thread) tidak lagi dijalankan antara mode utuh dan per-DEX di jalur proses terpisah (jalur cadangan di proses utama tetap memakainya): per-DEX lebih murah daripada mengulang seluruh APK dengan satu thread.
+- Status validasi: NOT VERIFIED (kompilasi Gradle, detekt, lint, dan uji perangkat menunggu CI dan uji pengguna).
+
+## 1.5.6-android.12 — 2026-10-28
+- Dekompilasi lebih cepat: pelepasan kelas dependensi sebelumnya dipicu oleh heap terpakai yang ikut menghitung sampah (belum dikumpulkan GC), sehingga kelas dilepas lalu diproses ulang tanpa perlu. Kini heap hidup diukur: hanya saat heap terpakai di atas 80% (atau sedang tertekan), GC penuh dipaksa paling sering tiap 3 detik dan heap diukur sesudahnya; kelas baru dilepas bila heap hidup di atas 55%. Selama heap hidup lapang, tidak ada kelas yang dilepas.
+- Thread worker di proses dekompiler naik ke prioritas foreground (sebelumnya nice 9): prioritas rendah membuat dekompilasi kalah rebutan CPU dengan semua aplikasi lain begitu pengguna pindah ke aplikasi lain. Pengunci prioritas thread GC dihapus. Di jalur cadangan (proses utama) prioritas tetap rendah demi UI.
+- Persisten saat ditinggal di background: (1) sebelum memilih file, sekali per peluncuran aplikasi meminta pengecualian optimasi baterai lewat dialog sistem; (2) wake lock kini 6 jam (sebelumnya 2 jam) sehingga CPU tidak tidur di tengah proses panjang; (3) bila proses dekompiler dimatikan sistem, pekerjaan otomatis diulang (maks 2 kali, lewat WorkManager) alih-alih langsung gagal.
+- Belum ada: melanjutkan dari kelas yang sudah selesai setelah proses mati (pengulangan dimulai dari awal).
+- Status validasi: NOT VERIFIED (kompilasi Gradle, detekt, lint, dan uji perangkat menunggu CI dan uji pengguna).
+
 ## 1.5.6-android.11 — 2026-10-28
 - Aplikasi tidak lagi patah-patah saat dekompilasi: JADX kini berjalan di proses terpisah (`:jadx`), jadi GC dan beban CPU-nya tidak lagi berbagi proses dengan UI. Semua thread proses itu (termasuk thread GC runtime) berjalan di bawah prioritas UI. Proses itu hidup hanya selama satu dekompilasi dan berakhir saat selesai atau dibatalkan, sehingga heap kembali utuh. Bila proses itu tidak bisa dijalankan, dekompilasi otomatis berjalan di proses utama seperti sebelumnya.
 - Lebih cepat: thread JADX naik dari maksimal 2 menjadi maksimal 3 pada heap 512 MB (maksimal 4 pada heap lebih besar). Paralelisme bersifat adaptif: saat heap hampir penuh (di atas 85%) dan ada kelas lain yang sedang dibuat, kelas berikutnya menunggu sebentar, jadi tidak ada dua working set besar sekaligus; saat memori lapang semua thread berjalan penuh. Pelepasan kelas dependensi baru dimulai di 70% heap (sebelumnya 60%), jadi lebih jarang memproses ulang.

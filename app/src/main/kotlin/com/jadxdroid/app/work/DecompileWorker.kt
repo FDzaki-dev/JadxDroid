@@ -58,12 +58,16 @@ class DecompileWorker(appContext: Context, params: WorkerParameters) : Coroutine
             throw cancel
         } catch (throwable: Throwable) {
             CrashLogger.logFailure(applicationContext, "decompile-failure", throwable)
-            Result.failure(
-                workDataOf(
-                    KEY_NAME to displayName,
-                    KEY_FAILURE to failureText(throwable).take(MAX_FAILURE_CHARS),
-                ),
-            )
+            if (shouldRestart(throwable)) {
+                Result.retry()
+            } else {
+                Result.failure(
+                    workDataOf(
+                        KEY_NAME to displayName,
+                        KEY_FAILURE to failureText(throwable).take(MAX_FAILURE_CHARS),
+                    ),
+                )
+            }
         } finally {
             withContext(NonCancellable + Dispatchers.IO) { Storage.cleanup(applicationContext) }
             if (wakeLock.isHeld) wakeLock.release()
@@ -84,6 +88,12 @@ class DecompileWorker(appContext: Context, params: WorkerParameters) : Coroutine
         return RemoteDecompiler(applicationContext).decompile(input, outDir, skipResources, progress)
             ?: JadxRunner().decompile(input, outDir, JadxRunner.Options(skipResources), progress)
     }
+
+    // The decompiler process was killed (memory pressure, battery manager): run again instead of giving up, as
+    // long as it keeps happening only a couple of times. WorkManager keeps the request, so this also survives the
+    // app being left in the background.
+    private fun shouldRestart(throwable: Throwable): Boolean =
+        throwable is RemoteFailure && throwable.died && runAttemptCount < MAX_RESTARTS
 
     private fun failureText(throwable: Throwable): String =
         if (throwable is RemoteFailure) throwable.trace else CrashLogger.rawTrace(throwable)
@@ -150,7 +160,8 @@ class DecompileWorker(appContext: Context, params: WorkerParameters) : Coroutine
 
         private const val NOTIFICATION_ID = 1
         private const val WAKE_LOCK_TAG = "JadxDroid:decompile"
-        private const val WAKE_LOCK_TIMEOUT_MS = 2L * 60 * 60 * 1000
+        private const val WAKE_LOCK_TIMEOUT_MS = 6L * 60 * 60 * 1000
+        private const val MAX_RESTARTS = 2
         private const val MAX_FAILURE_CHARS = 3000
         private const val PERCENT_SCALE = 100
         private const val NO_PERCENT = -1
