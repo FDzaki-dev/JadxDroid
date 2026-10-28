@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import jadx.android.MemoryGuard;
 import jadx.api.ICodeInfo;
 import jadx.api.JadxArgs;
 import jadx.core.dex.attributes.AFlag;
@@ -22,6 +23,15 @@ public class SaveCode {
 	}
 
 	public static void save(File dir, ClassNode cls, ICodeInfo code) {
+		try {
+			saveClassCode(dir, cls, code);
+		} finally {
+			// Android override: safe point (no class lock held) to release classes when the heap is under pressure
+			MemoryGuard.classSaved(cls);
+		}
+	}
+
+	private static void saveClassCode(File dir, ClassNode cls, ICodeInfo code) {
 		if (cls.contains(AFlag.DONT_GENERATE)) {
 			return;
 		}

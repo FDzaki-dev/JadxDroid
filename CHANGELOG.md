@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.5.6-android.10 — 2026-10-28
+- Memperbaiki kegagalan menjelang akhir dekompilasi APK besar (`OutOfMemoryError`, lalu semua pass per-DEX ikut gagal). Sebab 1: JADX memuat dan memproses semua dependensi tiap kelas, dan dependensi yang dimuat ulang tidak pernah dilepas; kelas dengan dependensi terbanyak dijadwalkan paling akhir, jadi heap penuh di ujung proses. Kini kelas yang sudah selesai dibuat dan hanya dimuat ulang sebagai dependensi dilepas lagi saat heap melewati 60% (kelas yang sedang dipakai kelas lain tidak disentuh; heap lapang = perilaku sama seperti sebelumnya).
+- Sebab 2: setelah `OutOfMemoryError`, thread worker JADX tidak berhenti dan tetap memegang kelas, sehingga mode per-DEX langsung kehabisan heap. Kini worker diinterupsi dan ditunggu sampai berhenti sebelum percobaan berikutnya.
+- Urutan fallback baru: mode utuh, lalu mode utuh hemat memori (1 thread, kelas dilepas agresif), lalu per-DEX (juga hemat memori; pass yang kehabisan heap diulang 1 thread). Kegagalan mode sebelumnya dicatat mentah di `JADXDROID-NOTES.txt` dalam ZIP hasil, dan di log kegagalan bila semuanya gagal.
+- Status validasi: NOT VERIFIED (kompilasi Gradle, detekt, lint, dan uji perangkat menunggu CI dan uji pengguna).
+
 ## 1.5.6-android.9 — 2026-10-28
 - Dekompilasi tidak lagi membuat UI patah-patah: thread worker JADX kini berprioritas di bawah UI dan render (nice 9). Nilai ini sengaja tetap di atas ambang grup background (10), jadi worker tidak dibatasi ke core kecil dan kecepatan tidak turun saat UI diam.
 - Lebih cepat dan hemat memori: JADX memakai code writer ringan tanpa metadata GUI, dan graf usage dibuang setelah diterapkan ke node (pengaturan yang sama dengan JADX CLI). Lebih sedikit objek dan GC saat APK besar.

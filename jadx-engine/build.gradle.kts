@@ -27,6 +27,8 @@ val overriddenFiles = listOf(
 	"jadx/api/ResourceFile.java",
 	"jadx/api/ResourcesLoader.java",
 	"jadx/core/dex/visitors/SaveCode.java",
+	// Memory control: dependencies pinned while a class is generated, see jadx.android.MemoryGuard:
+	"jadx/core/ProcessClass.java",
 	"jadx/core/dex/visitors/finaly/traverser/handlers/MergePathActivePathTraverserHandler.java",
 	"jadx/core/utils/Utils.java",
 	"jadx/zip/parser/ZipDeflate.java",
